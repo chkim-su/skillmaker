@@ -1,7 +1,7 @@
 ---
 name: skill-architect
 description: Designs new skills through iterative questioning and clarification. Use when creating a brand new skill from scratch.
-tools: Read, Write, Bash, Grep, Glob
+tools: ["Read", "Write", "Bash", "Grep", "Glob"]
 skills: skill-design
 model: sonnet
 color: cyan

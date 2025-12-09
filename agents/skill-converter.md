@@ -1,7 +1,7 @@
 ---
 name: skill-converter
 description: Analyzes existing code and converts it into reusable skill format. Use when transforming existing functionality into skills.
-tools: Read, Write, Bash, Grep, Glob
+tools: ["Read", "Write", "Bash", "Grep", "Glob"]
 skills: skill-design
 model: sonnet
 color: purple

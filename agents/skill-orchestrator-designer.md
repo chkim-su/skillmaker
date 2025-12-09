@@ -1,7 +1,7 @@
 ---
 name: skill-orchestrator-designer
 description: Creates subagents that consume single or multiple skills with isolated context. Use when building skill-using subagents.
-tools: Read, Write, Bash, Grep, Glob, Task
+tools: ["Read", "Write", "Bash", "Grep", "Glob", "Task"]
 skills: skill-catalog, orchestration-patterns
 model: sonnet
 color: green

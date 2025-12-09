@@ -1,7 +1,7 @@
 ---
 name: orchestration-patterns
 description: Patterns for single-skill vs multi-skill subagent architectures. Use when designing subagents that consume skills.
-allowed-tools: Read, Write
+allowed-tools: ["Read", "Write"]
 ---
 
 # Orchestration Patterns

@@ -1,7 +1,7 @@
 ---
 name: skill-design
 description: Best practices for skill structure, progressive disclosure, and trigger phrases. Use when creating or designing skills.
-allowed-tools: Read, Write, Glob, Grep
+allowed-tools: ["Read", "Write", "Glob", "Grep"]
 ---
 
 # Skill Design Best Practices

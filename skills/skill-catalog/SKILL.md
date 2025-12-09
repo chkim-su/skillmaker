@@ -1,7 +1,7 @@
 ---
 name: skill-catalog
 description: Categorizes and displays available skills with similarity grouping. Use when showing skill lists or selecting skills for orchestrators.
-allowed-tools: Read, Glob, Grep
+allowed-tools: ["Read", "Glob", "Grep"]
 ---
 
 # Skill Catalog
