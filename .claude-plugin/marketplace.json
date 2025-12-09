@@ -28,9 +28,9 @@
         "./commands/command-maker"
       ],
       "agents": [
-        "./agents/skill-architect",
-        "./agents/skill-converter",
-        "./agents/skill-orchestrator-designer"
+        "./agents/skill-architect.md",
+        "./agents/skill-converter.md",
+        "./agents/skill-orchestrator-designer.md"
       ]
     }
   ]
