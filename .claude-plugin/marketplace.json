@@ -9,13 +9,29 @@
   "plugins": [
     {
       "name": "skillmaker",
-      "source": "./plugins/skillmaker",
       "description": "Create perfect skills and subagents that use them explicitly. Solve the context window problem with skill-based architecture.",
+      "source": "./",
       "version": "1.0.0",
       "author": {
         "name": "Chanho KIM"
       },
-      "category": "productivity"
+      "category": "productivity",
+      "skills": [
+        "./skills/skill-design",
+        "./skills/skill-catalog",
+        "./skills/orchestration-patterns"
+      ],
+      "commands": [
+        "./commands/skill-new",
+        "./commands/skillization",
+        "./commands/skill-cover",
+        "./commands/command-maker"
+      ],
+      "agents": [
+        "./agents/skill-architect",
+        "./agents/skill-converter",
+        "./agents/skill-orchestrator-designer"
+      ]
     }
   ]
 }
