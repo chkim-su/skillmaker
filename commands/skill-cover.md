@@ -10,9 +10,100 @@ allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob", "Task", "Skill"]
 
 Create a subagent that explicitly uses one or multiple skills, providing isolated context window.
 
-## Your Task
+## Step 1: Discover Available Skills (COMMAND RESPONSIBILITY)
 
-After loading the orchestration-patterns skill, use the Task tool to launch the `skill-orchestrator-designer` agent to create a subagent wrapper:
+**CRITICAL**: This step MUST be done by the command, NOT the agent. The agent runs in isolated context and cannot interact with the user for selection.
+
+### 1.1 Scan for Skills
+
+Use Glob tool to find all skills:
+```
+Pattern: .claude/skills/*/SKILL.md
+```
+
+### 1.2 Extract Skill Information
+
+For each SKILL.md found, use Read tool to extract:
+- Skill name (from frontmatter)
+- Description (from frontmatter)
+- Allowed tools (from frontmatter)
+
+### 1.3 Present Skills to User
+
+Display ACTUAL skills found (do NOT use hardcoded examples):
+
+```
+Available Skills in Your Project:
+
+[For each skill found, display:]
+- {skill-name}: {description}
+
+Example output format:
+- sql-optimizer: Optimize SQL queries for performance
+- api-client: REST API client patterns and error handling
+- data-pipeline: ETL pipeline design and implementation
+```
+
+If no skills found, inform user:
+```
+No skills found in .claude/skills/
+
+Create skills first using:
+- /skillmaker:skill-new (create new skill from scratch)
+- /skillmaker:skillization (convert existing code to skill)
+```
+
+### 1.4 Get User Selection
+
+Ask user which skills to include in the agent:
+
+```
+Which skills should this agent use?
+
+Options:
+1. Single skill (specialized agent for one task)
+2. Multiple skills (orchestrator for complex workflows)
+
+Enter skill name(s) separated by commas, or type number(s) to select:
+```
+
+### 1.5 Ask Follow-up Questions
+
+After skill selection, gather configuration:
+
+```
+Agent Configuration:
+
+1. Agent name: (e.g., sql-specialist, data-pipeline-runner)
+2. Agent purpose: What should this agent do?
+3. Model: sonnet (default) / opus / haiku
+4. Color: blue / green / yellow / cyan / magenta
+5. Additional tools needed: (Read, Write, Grep, Glob, Bash, Task)
+```
+
+### 1.6 Confirm Configuration
+
+Present final configuration to user:
+
+```
+Agent Configuration Summary:
+
+Name: {agent-name}
+Purpose: {purpose}
+Architecture: {single-skill-consumer | multi-skill-orchestrator}
+Skills: {skill1, skill2, ...}
+Tools: {tools}
+Model: {model}
+Color: {color}
+
+Proceed with agent design? (yes/no)
+```
+
+Wait for user confirmation before proceeding to Step 2.
+
+## Step 2: Launch Designer Agent
+
+After user confirms configuration, use the Task tool to launch the `skill-orchestrator-designer` agent:
 
 ```
 Task tool with:
@@ -20,127 +111,69 @@ Task tool with:
 - description: "Design skill-using subagent"
 - prompt: "You are the skill-orchestrator-designer agent from the skillmaker plugin.
 
-Your role is to create a subagent that provides isolated context for skill usage.
+Your role is to design a subagent definition based on the provided configuration.
 
-## Context
-User request: {user_provided_purpose_if_any}
-Available skills: {list_from_codebase}
+## Configuration (from command)
+Agent Name: {agent-name}
+Purpose: {purpose}
+Architecture: {single-skill-consumer | multi-skill-orchestrator}
+Selected Skills: {skill1, skill2, ...}
+Tools: {tools}
+Model: {model}
+Color: {color}
 
-## Your Process
+## Your Task
 
-1. **Purpose Clarification** (2-3 questions)
-   - What task should this subagent handle?
-   - Is it a specialized single-purpose agent or general orchestrator?
+Design the agent system prompt and structure. DO NOT create files - return the design only.
 
-2. **Skill Selection**
+### For Single-Skill Consumer:
 
-   First, scan available skills:
-   - Use Glob to find: .claude/skills/*/SKILL.md
-   - Use Read to get skill names and descriptions
-   - Group similar skills by category
+Design a focused agent that uses ONE skill exclusively:
+- Clear role definition
+- Skill usage patterns
+- Response format
+- Scope limitations
 
-   Then ask:
-   - **Single-skill consumer**: Uses ONE skill for specialized task
-   - **Multi-skill orchestrator**: Coordinates MULTIPLE skills for complex workflow
+### For Multi-Skill Orchestrator:
 
-   If multi-skill:
-   - Display categorized skill list:
-     ```
-     Available Skills:
-
-     📊 Data & Analysis:
-     - data-analysis: Analyze datasets and generate insights
-     - sql-helper: Write and optimize SQL queries
-
-     🎨 Design & Frontend:
-     - frontend-design: Create polished UI components
-     - theme-factory: Apply consistent theming
-
-     📝 Documentation:
-     - doc-coauthoring: Collaborative documentation workflow
-     ```
-   - Ask which skills to include (user selects by name)
-
-3. **Architecture Design**
-
-   For **single-skill consumer**:
-   ```yaml
-   ---
-   name: {specialized-task}-agent
-   description: Handles {specific task} using {skill-name} skill
-   tools: Read, Write, Grep, Bash  # As needed
-   skills: {single-skill-name}
-   model: sonnet
-   ---
-
-   You are a specialized agent for {task}.
-   You MUST use the {skill-name} skill for all {task} operations.
-   ```
-
-   For **multi-skill orchestrator**:
-   ```yaml
-   ---
-   name: {domain}-orchestrator
-   description: Coordinates {domain} workflow across multiple skills
-   tools: Read, Write, Grep, Bash, Task  # Task tool for spawning sub-agents
-   skills: skill1, skill2, skill3
-   model: sonnet
-   ---
-
-   You are a workflow orchestrator for {domain}.
-
-   Available skills:
-   - {skill1}: {purpose}
-   - {skill2}: {purpose}
-   - {skill3}: {purpose}
-
-   Your role:
-   1. Analyze the user request
-   2. Determine which skill(s) to activate
-   3. Coordinate multi-skill workflows
-   4. Return unified results
-   ```
-
-4. **Present Agent Design**
-   - DO NOT create files yourself
-   - Return structured agent definition to the command
-   - Include appropriate skills in YAML frontmatter
-   - Write clear system prompt explaining skill usage
-   - Add usage examples
-
-## Key Principles
-
-- **Context isolation**: Subagent provides independent context window
-- **Explicit skill usage**: Skills listed in YAML frontmatter auto-load
-- **Clear responsibility**: Single-purpose consumers vs orchestrators
-- **Tool access**: Include Task tool for orchestrators that may spawn sub-agents
+Design a coordinator agent that:
+- Analyzes user requests
+- Selects appropriate skill(s)
+- Coordinates multi-skill workflows
+- Returns unified results
 
 ## Output Format
 
-After completing the design, return it in this format:
+Return design in this exact format:
 
 === AGENT DESIGN ===
 NAME: {agent-name}
-DESCRIPTION: {agent description}
+DESCRIPTION: {agent description for frontmatter}
 ARCHITECTURE: {single-skill-consumer | multi-skill-orchestrator}
 SKILLS: {skill1, skill2, skill3}
-TOOLS: ["Read", "Write", "Grep", "Glob", "Bash", "Task"]
-MODEL: sonnet
-COLOR: {blue|green|yellow|cyan|magenta}
+TOOLS: {tools array}
+MODEL: {model}
+COLOR: {color}
 
 === AGENT.MD CONTENT ===
 ---
 name: {agent-name}
 description: {description}
-tools: ["Read", "Write", "Grep"]
+tools: {tools array}
 skills: {skill-list}
-model: sonnet
+model: {model}
 color: {color}
 ---
 
 # {Agent Title}
 
-{Full agent markdown content with system prompt}
+{Full agent system prompt with:}
+- Role definition
+- Available skills and their purposes
+- Behavior guidelines
+- Response patterns
+- Key principles
+- Scope limitations
 
 === END AGENT.MD ===
 
@@ -148,9 +181,7 @@ This structured format allows the command to parse and create the agent file.
 "
 ```
 
-Note: If the user specified a purpose (e.g., `/skillmaker:skill-cover Create agent for data pipeline tasks`), include it in the prompt.
-
-## Step 2: Review Agent Design and Confirm
+## Step 3: Review Agent Design and Confirm
 
 After the skill-orchestrator-designer agent completes, you will receive a structured agent design.
 
@@ -165,7 +196,7 @@ After the skill-orchestrator-designer agent completes, you will receive a struct
 
 2. **Present design summary to user**:
    ```
-   🤖 Agent Design Complete
+   Agent Design Complete
 
    Name: {agent-name}
    Description: {description}
@@ -189,13 +220,13 @@ After the skill-orchestrator-designer agent completes, you will receive a struct
 3. **Ask for confirmation**:
    "Ready to create this agent? This will create .claude/agents/{agent-name}.md"
 
-4. **Wait for user confirmation** before proceeding to Step 3.
+4. **Wait for user confirmation** before proceeding to Step 4.
 
-## Step 3: Create Agent File
+## Step 4: Create Agent File
 
 **IMPORTANT**: File must be created in the PROJECT's .claude directory (current working directory), NOT the plugin directory.
 
-### 3.1 Create Directory if Needed
+### 4.1 Create Directory if Needed
 
 Use Bash tool to ensure agents directory exists:
 
@@ -203,7 +234,7 @@ Use Bash tool to ensure agents directory exists:
 mkdir -p .claude/agents
 ```
 
-### 3.2 Write Agent Definition
+### 4.2 Write Agent Definition
 
 Use Write tool:
 - **Path**: `.claude/agents/{agent-name}.md`
@@ -221,18 +252,18 @@ color: blue
 ---
 ```
 
-### 3.3 Verify Creation
+### 4.3 Verify Creation
 
 Use Read tool to verify the agent file was created correctly:
 - Read `.claude/agents/{agent-name}.md`
 - Confirm YAML frontmatter is valid
 - Confirm skills are properly listed
 
-### 3.4 Show Confirmation
+### 4.4 Show Confirmation
 
 Display to user:
 ```
-✅ Created agent: {agent-name}
+Created agent: {agent-name}
 
 File created: .claude/agents/{agent-name}.md
 
@@ -255,12 +286,13 @@ The agent will:
 Next steps:
 - Test the agent with a sample request
 - Refine the agent's system prompt if needed (edit the .md file)
-- Share with your team for collaborative workflows
+- Create commands to orchestrate this agent (use /skillmaker:command-maker)
 ```
 
 ## Important Notes
 
-- **File location**: Create agent file in PROJECT's `.claude/agents/` directory (current working directory), NOT the plugin's directory
+- **Scanning location**: Scan skills from PROJECT's `.claude/skills/` directory
+- **File creation location**: Create agent file in PROJECT's `.claude/agents/` directory
 - **Path format**: Use relative path `.claude/agents/{agent-name}.md`
 - **Verification**: Verify the file was created and has valid YAML frontmatter
 - **Availability**: Agents are available immediately as slash commands (no restart needed)
