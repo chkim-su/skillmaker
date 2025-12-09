@@ -15,25 +15,7 @@
       "author": {
         "name": "Claude Code Community"
       },
-      "category": "productivity",
-      "tags": ["skills", "subagents", "architecture", "context-management"],
-      "keywords": ["skill-creation", "subagent-design", "orchestration", "progressive-disclosure"],
-      "strict": false,
-      "skills": [
-        "./skills/skill-design",
-        "./skills/skill-catalog",
-        "./skills/orchestration-patterns"
-      ],
-      "commands": [
-        "./commands/skill-new.md",
-        "./commands/skillization.md",
-        "./commands/skill-cover.md"
-      ],
-      "agents": [
-        "./agents/skill-architect.md",
-        "./agents/skill-converter.md",
-        "./agents/skill-orchestrator-designer.md"
-      ]
+      "category": "productivity"
     }
   ]
 }
