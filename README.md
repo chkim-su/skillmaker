@@ -134,6 +134,53 @@ Choose skill(s) based on request domain.
 
 ---
 
+### `/skillmaker:command-maker` - Create Agent-Orchestrating Commands
+
+Build commands that orchestrate existing agents into structured workflows.
+
+**Usage:**
+```bash
+/skillmaker:command-maker                                    # Interactive mode
+/skillmaker:command-maker Create a data pipeline workflow    # With description
+```
+
+**Process:**
+1. Chooses scope (single command or command suite)
+2. Scans available agents in `.claude/agents/`
+3. Gets user selection of which agents to orchestrate
+4. Determines workflow pattern (sequential, parallel, conditional)
+5. Creates command(s) in `.claude/commands/`
+
+**Scope Options:**
+
+#### Single Command
+Creates one command that orchestrates selected agents:
+```yaml
+---
+description: Run data pipeline with validation
+argument-hint: "[pipeline name]"
+allowed-tools: ["Read", "Write", "Task"]
+---
+
+# Data Pipeline Command
+
+1. Launch data-validator agent
+2. Launch data-transformer agent
+3. Launch data-loader agent
+```
+
+#### Command Suite
+Creates multiple related commands for complex workflows:
+```
+.claude/commands/
+├── pipeline-validate.md    # Validation step
+├── pipeline-transform.md   # Transformation step
+├── pipeline-load.md        # Loading step
+└── pipeline-full.md        # Full pipeline orchestration
+```
+
+---
+
 ## Quick Start
 
 ### 1. Create Your First Skill
