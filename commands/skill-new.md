@@ -1,223 +1,180 @@
 ---
-description: Create a brand new skill from scratch based on conversation context or user goals. Uses 20-questions clarification approach.
+description: Create a brand new skill from scratch. Guides through skill type selection (knowledge/hybrid/tool) and uses init_skill.py for proper structure.
 argument-hint: "[skill description]"
 allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob", "Task", "Skill"]
 ---
 
 # Create New Skill
 
-**FIRST: Load the skillmaker:skill-design skill** using the Skill tool to understand skill structure, progressive disclosure, and trigger phrases.
+**FIRST: Load the skillmaker:skill-design skill** using the Skill tool.
 
-Create a brand new skill from scratch based on conversation context or user goals.
+Create a brand new skill with proper structure based on its type.
 
 ## Your Task
 
-After loading the skill-design skill, use the Task tool to launch the `skill-architect` agent to guide the user through creating a new skill:
+### Step 1: Quick Assessment
+
+If user provided a description, ask 2-3 focused questions:
+
+1. **Is this primarily about KNOWLEDGE or AUTOMATION?**
+   - Guidelines, patterns, best practices → Knowledge skill
+   - File manipulation, data processing → Tool skill
+   - Both → Hybrid skill
+
+2. **Will the same operations be performed repeatedly?**
+   - Yes → Likely needs scripts (Tool/Hybrid)
+   - No → Likely Knowledge skill
+
+3. **What file formats or external tools involved?**
+   - PDF, XLSX, images, APIs → Tool skill with scripts
+
+### Step 2: Determine Skill Type
+
+Based on answers, classify:
+
+| Type | When to Use | Structure |
+|------|-------------|-----------|
+| **Knowledge** | Guidelines, patterns, decisions depend on context | SKILL.md + references/ |
+| **Hybrid** | Mix of guidance + helper scripts | SKILL.md + scripts/ + references/ |
+| **Tool** | File manipulation, same operations repeatedly | SKILL.md + scripts/ |
+
+### Step 3: Launch skill-architect Agent
+
+Use the Task tool to launch the `skill-architect` agent:
 
 ```
 Task tool with:
-- subagent_type: "general-purpose"
-- description: "Create new skill with 20-questions"
-- prompt: "You are the skill-architect agent from the skillmaker plugin.
+- subagent_type: "skillmaker:skill-architect"
+- description: "Design new skill"
+- prompt: "Design a new skill based on:
 
-Your role is to create a perfect, production-ready skill through iterative clarification.
+User request: {description_from_user}
+Preliminary type: {knowledge | hybrid | tool}
 
-## Context
-User request: {user_provided_description_if_any}
-Conversation history: Available in context
+Follow your process:
+1. Ask clarifying questions (one at a time)
+2. Determine final skill type with reasoning
+3. Design complete structure
+4. Present design for approval
 
-## Your Process
+Use scripts/init_skill.py to initialize and scripts/validate_skill.py to validate.
 
-1. **Understand Intent** (3-5 questions)
-   - What problem does this skill solve?
-   - What triggers should activate it?
-   - What tools/knowledge does it need?
-
-2. **Clarify Scope** (3-5 questions)
-   - Single-purpose or multi-capability?
-   - What are edge cases?
-   - What should it NOT do?
-
-3. **Design Structure**
-   - SKILL.md with trigger phrases
-   - Progressive disclosure (reference.md, examples.md if needed)
-   - Allowed tools specification
-
-4. **Present Skill Design**
-   - DO NOT create files yourself
-   - Return structured design to the command
-   - Include complete SKILL.md content
-   - Specify any references/ or examples/ files needed
-
-## Key Principles
-
-- **20-questions approach**: Ask focused questions, one at a time
-- **Progressive disclosure**: Keep SKILL.md concise, detailed docs separate
-- **Trigger phrases**: Include 5-10 specific phrases that should activate the skill
-- **Tool restrictions**: Use allowed-tools to limit scope appropriately
-
-## Output Format
-
-After completing the design, return it in this format:
-
-=== SKILL DESIGN ===
-NAME: {skill-name}
-DESCRIPTION: {full description with trigger phrases}
-ALLOWED_TOOLS: ["Tool1", "Tool2", "Tool3"]
-
-=== SKILL.MD CONTENT ===
----
-name: {skill-name}
-description: {description}
-allowed-tools: ["Tool1", "Tool2"]
----
-
-# {Skill Title}
-
-{Full SKILL.md markdown content here}
-
-=== END SKILL.MD ===
-
-REFERENCES_NEEDED: {yes|no}
-{If yes, for each reference file:}
-REFERENCE_FILE: {filename}.md
-{content}
-END_REFERENCE_FILE
-
-EXAMPLES_NEEDED: {yes|no}
-{If yes, for each example file:}
-EXAMPLE_FILE: {filename}.md
-{content}
-END_EXAMPLE_FILE
-
-This structured format allows the command to parse and create all necessary files.
+Return the complete skill design including:
+- Skill name and type
+- SKILL.md content
+- Scripts needed (if tool/hybrid) with implementations
+- References needed with content
+- Assets needed (if any)
 "
 ```
 
-Note: If the user provided a description with the command (e.g., `/skillmaker:skill-new Create a skill for database migrations`), include it in the prompt.
+### Step 4: Review and Create
 
-## Step 2: Review Design and Confirm
+After agent completes:
 
-After the skill-architect agent completes, you will receive a structured skill design.
+1. **Parse the design output**
+2. **Present summary to user**:
 
-1. **Parse the agent's output** to extract:
-   - Skill name
-   - Description
-   - Allowed tools
-   - SKILL.md content
-   - References files (if any)
-   - Examples files (if any)
+```
+✨ Skill Design Complete
 
-2. **Present design summary to user**:
-   ```
-   ✨ Skill Design Complete
+Name: {skill-name}
+Type: {Knowledge | Hybrid | Tool} Skill
 
-   Name: {skill-name}
-   Description: {description}
+Trigger Phrases:
+- {phrase1}
+- {phrase2}
 
-   Trigger Phrases:
-   - {phrase1}
-   - {phrase2}
-   - {phrase3}
+Structure:
+{skill-name}/
+├── SKILL.md
+├── scripts/        # if applicable
+├── references/     # if applicable
+└── assets/         # if applicable
 
-   Allowed Tools: {tools}
+Scripts: {list if any}
+References: {list if any}
 
-   Structure:
-   - SKILL.md (core skill)
-   - references/{filename}.md (if needed)
-   - examples/{filename}.md (if needed)
-   ```
+Ready to create?
+```
 
-3. **Ask for confirmation**:
-   "Ready to create this skill? This will create files in .claude/skills/{skill-name}/"
+3. **Wait for confirmation**
 
-4. **Wait for user confirmation** before proceeding to Step 3.
+### Step 5: Create Skill Files
 
-## Step 3: Create Skill Files
-
-**IMPORTANT**: Files must be created in the PROJECT's .claude directory (current working directory), NOT the plugin directory.
-
-### 3.1 Create Directory Structure
-
-Use Bash tool to create directories:
+**Use init_skill.py for proper structure:**
 
 ```bash
-mkdir -p .claude/skills/{skill-name}
-mkdir -p .claude/skills/{skill-name}/references  # if references needed
-mkdir -p .claude/skills/{skill-name}/examples    # if examples needed
+# Create skill structure
+python ${CLAUDE_PLUGIN_ROOT}/scripts/init_skill.py {skill-name} --type {type} --path .claude/skills
 ```
 
-### 3.2 Write SKILL.md
+Then customize the generated files with actual content from the design.
 
-Use Write tool:
-- **Path**: `.claude/skills/{skill-name}/SKILL.md`
-- **Content**: Extract the SKILL.md content from between `=== SKILL.MD CONTENT ===` and `=== END SKILL.MD ===`
+### Step 6: Implement Content
 
-The content must include YAML frontmatter:
-```yaml
----
-name: {skill-name}
-description: {description with trigger phrases}
-allowed-tools: ["Tool1", "Tool2"]
----
+**For SKILL.md**:
+- Replace TODO placeholders with real content
+- Add trigger phrases to description
+- Document available scripts (if any)
+
+**For scripts/** (if tool/hybrid):
+- Implement actual functionality
+- Test each script
+- Make executable: `chmod +x scripts/*.py`
+
+**For references/**:
+- Add detailed patterns and documentation
+
+### Step 7: Validate and Confirm
+
+```bash
+python ${CLAUDE_PLUGIN_ROOT}/scripts/validate_skill.py .claude/skills/{skill-name}
 ```
 
-### 3.3 Write Supporting Files
+Show results to user:
 
-**For each reference file** (if REFERENCES_NEEDED: yes):
-- Extract content between `REFERENCE_FILE: {filename}.md` and `END_REFERENCE_FILE`
-- Use Write tool
-- Path: `.claude/skills/{skill-name}/references/{filename}.md`
-- Content: Extracted reference content
-
-**For each example file** (if EXAMPLES_NEEDED: yes):
-- Extract content between `EXAMPLE_FILE: {filename}.md` and `END_EXAMPLE_FILE`
-- Use Write tool
-- Path: `.claude/skills/{skill-name}/examples/{filename}.md`
-- Content: Extracted example content
-
-### 3.4 Verify Creation
-
-Use Glob tool to verify all files were created:
-```
-Pattern: .claude/skills/{skill-name}/**/*
-```
-
-Confirm all expected files exist.
-
-### 3.5 Show Confirmation
-
-Display to user:
 ```
 ✅ Created skill: {skill-name}
 
+Type: {type}
+
 Files created:
 - .claude/skills/{skill-name}/SKILL.md
-- .claude/skills/{skill-name}/references/{filename}.md (if applicable)
-- .claude/skills/{skill-name}/examples/{filename}.md (if applicable)
+- .claude/skills/{skill-name}/scripts/{script}.py (if applicable)
+- .claude/skills/{skill-name}/references/{ref}.md (if applicable)
 
-Skill is ready to use!
+Validation: ✅ Passed
 
 Usage:
-- Load explicitly: Use Skill tool with "{skill-name}"
-- In agents: Add to YAML frontmatter: skills: {skill-name}
-- In commands: Add "FIRST: Load {skill-name} skill"
-
-Example files for reference:
-- Simple skill: /examples/example-skill-simple.md
-- Skill with references: /examples/example-skill-with-references.md
-- Single-skill agent: /examples/example-agent-single-skill.md
+- Load: Use Skill tool with "{skill-name}"
+- In agents: skills: {skill-name}
 
 Next steps:
-- Test the skill with a simple request
-- Refine based on actual usage
-- Create a specialized agent that uses this skill (use /skillmaker:skill-cover)
+{if tool/hybrid}
+1. Test scripts with real inputs
+{endif}
+2. Try the skill with a sample request
+3. Create an agent: /skillmaker:skill-cover
+```
+
+## Quick Path for Simple Skills
+
+If user just wants a knowledge skill quickly:
+
+```bash
+# Initialize
+python ${CLAUDE_PLUGIN_ROOT}/scripts/init_skill.py {name} --type knowledge --path .claude/skills
+
+# Edit SKILL.md with actual content
+# Validate
+python ${CLAUDE_PLUGIN_ROOT}/scripts/validate_skill.py .claude/skills/{name}
 ```
 
 ## Important Notes
 
-- **File location**: Create files in PROJECT's `.claude/` directory (current working directory), NOT the plugin's `.claude/`
-- **Path format**: Use relative paths like `.claude/skills/{name}/SKILL.md`
-- **Verification**: Always verify files were created before confirming to user
-- **Availability**: Skills are available immediately after creation (no restart needed)
-- **Examples**: Reference the example files in `/examples/` directory for guidance
+- **Always use init_skill.py** - Don't create structure manually
+- **Determine type early** - It shapes everything
+- **Test scripts** - Tool skills need working scripts
+- **Validate before done** - Catch issues early
+- **File location**: PROJECT's `.claude/skills/` directory

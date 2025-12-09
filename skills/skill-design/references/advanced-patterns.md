@@ -2,255 +2,431 @@
 
 This document provides advanced patterns for complex skill scenarios.
 
-## Multi-Phase Skills
+## Skill Type Decision Tree
 
-Skills that guide users through multi-step processes:
+```
+Does the skill involve file manipulation?
+├── Yes
+│   └── Same operation repeatedly?
+│       ├── Yes → Tool Skill (scripts/)
+│       └── No → Hybrid Skill (scripts/ + references/)
+└── No
+    └── Is there a preferred approach?
+        ├── Yes, with variations → Hybrid Skill
+        └── Multiple valid approaches → Knowledge Skill
+```
 
-```yaml
+## Script Design Patterns
+
+### Pattern 1: Standalone Script with argparse
+
+Every script should be independently executable:
+
+```python
+#!/usr/bin/env python3
+"""
+Brief description of what the script does.
+
+Usage:
+    python script.py <required_arg> [--optional <value>]
+
+Examples:
+    python script.py input.pdf output.txt
+    python script.py input.pdf output.txt --verbose
+"""
+
+import argparse
+import sys
+from pathlib import Path
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Script description")
+    parser.add_argument("input", help="Input file path")
+    parser.add_argument("output", help="Output file path")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+    args = parser.parse_args()
+
+    # Validate inputs
+    input_path = Path(args.input)
+    if not input_path.exists():
+        print(f"Error: File not found: {input_path}", file=sys.stderr)
+        sys.exit(1)
+
+    # Main logic
+    try:
+        process(input_path, Path(args.output), verbose=args.verbose)
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+
+def process(input_path: Path, output_path: Path, verbose: bool = False) -> None:
+    """Core processing logic."""
+    if verbose:
+        print(f"Processing {input_path}...")
+    # Implementation here
+    print(f"Done! Output: {output_path}")
+
+
+if __name__ == "__main__":
+    main()
+```
+
+### Pattern 2: Script Suite with Shared Utilities
+
+For skills with multiple related scripts:
+
+```
+skill-name/
+├── scripts/
+│   ├── __init__.py       # Empty or shared imports
+│   ├── utils.py          # Shared utilities
+│   ├── operation1.py     # Main script 1
+│   └── operation2.py     # Main script 2
+```
+
+**utils.py**:
+```python
+"""Shared utilities for skill scripts."""
+from pathlib import Path
+
+def validate_file(path: Path, extension: str = None) -> Path:
+    """Validate file exists and optionally check extension."""
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {path}")
+    if extension and path.suffix.lower() != extension.lower():
+        raise ValueError(f"Expected {extension} file, got: {path.suffix}")
+    return path
+```
+
+**operation1.py**:
+```python
+#!/usr/bin/env python3
+from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).parent))
+from utils import validate_file
+# ... rest of script
+```
+
+## Progressive Disclosure Patterns
+
+### Pattern 1: Framework-Specific References
+
+```
+cloud-deploy/
+├── SKILL.md              # Core workflow + framework selection
+└── references/
+    ├── aws.md            # AWS-specific patterns
+    ├── gcp.md            # GCP-specific patterns
+    └── azure.md          # Azure-specific patterns
+```
+
+**SKILL.md**:
+```markdown
+## Select Your Cloud Provider
+
+Based on your infrastructure, choose the appropriate guide:
+
+- **AWS**: See [references/aws.md](references/aws.md) for EC2, Lambda, ECS
+- **GCP**: See [references/gcp.md](references/gcp.md) for Compute, Cloud Run, GKE
+- **Azure**: See [references/azure.md](references/azure.md) for VMs, Functions, AKS
+
+The core deployment principles below apply to all providers.
+```
+
+### Pattern 2: Complexity Levels
+
+```markdown
+## Quick Start
+
+[Minimal instructions for common case]
+
+## Standard Usage
+
+[More detailed instructions with options]
+
+## Advanced Configuration
+
+See [references/advanced.md](references/advanced.md) for:
+- Custom configurations
+- Edge cases
+- Performance tuning
+```
+
+### Pattern 3: Large Reference Files
+
+For files >100 lines, include a table of contents:
+
+```markdown
+# API Reference
+
+## Table of Contents
+
+- [Authentication](#authentication)
+- [Endpoints](#endpoints)
+  - [Users](#users)
+  - [Products](#products)
+- [Error Codes](#error-codes)
+- [Rate Limiting](#rate-limiting)
+
 ---
-name: deployment-orchestrator
-description: Multi-phase deployment workflow
----
 
-# Deployment Orchestrator
+## Authentication
+...
+```
 
-## Phase 1: Pre-Deployment Validation
-- Check environment variables
-- Validate configuration files
-- Run test suite
+## Asset Usage Patterns
 
-## Phase 2: Build Process
-- Compile assets
-- Optimize bundles
-- Generate deployment artifacts
+### Pattern 1: Project Templates
 
-## Phase 3: Deployment Execution
-- Deploy to staging
-- Run smoke tests
-- Deploy to production
+```
+skill-name/
+└── assets/
+    └── template/
+        ├── package.json
+        ├── tsconfig.json
+        ├── src/
+        │   └── index.ts
+        └── README.md
+```
 
-## Phase 4: Post-Deployment Verification
-- Health checks
-- Monitor error rates
-- Verify feature flags
+**Usage in SKILL.md**:
+```markdown
+## Initialize New Project
+
+Copy the template to your project:
+
+```bash
+cp -r ${SKILL_ROOT}/assets/template ./my-project
+cd my-project
+npm install
+```
+```
+
+### Pattern 2: Document Templates
+
+```
+skill-name/
+└── assets/
+    ├── report-template.docx
+    ├── presentation-template.pptx
+    └── brand/
+        ├── logo.png
+        └── colors.json
+```
+
+**Usage in SKILL.md**:
+```markdown
+## Generate Report
+
+Use the template as a starting point:
+
+```python
+from docx import Document
+doc = Document('${SKILL_ROOT}/assets/report-template.docx')
+# Modify and save
+```
+```
+
+## Multi-Phase Workflow Skills
+
+For complex multi-step processes:
+
+```markdown
+## Deployment Workflow
+
+### Phase 1: Validation
+
+```bash
+# Run validation script
+python scripts/validate.py --config deployment.yaml
+```
+
+If validation fails, see [references/troubleshooting.md](references/troubleshooting.md).
+
+### Phase 2: Build
+
+```bash
+# Build artifacts
+python scripts/build.py --env production
+```
+
+### Phase 3: Deploy
+
+```bash
+# Deploy to target environment
+python scripts/deploy.py --env production --dry-run
+# If dry-run looks good:
+python scripts/deploy.py --env production
+```
+
+### Phase 4: Verify
+
+```bash
+# Run health checks
+python scripts/verify.py --env production
+```
 ```
 
 ## Conditional Logic in Skills
 
-Skills can include conditional guidance:
+Skills can provide different guidance based on context:
 
 ```markdown
-## Based on Your Stack
+## Framework Detection
 
-### If using React:
-- Use React hooks for state management
-- Follow React naming conventions
-- Apply React-specific optimizations
+First, detect your framework:
 
-### If using Vue:
-- Use Composition API
-- Follow Vue style guide
-- Apply Vue-specific patterns
+```bash
+# Check for package.json (Node.js)
+# Check for requirements.txt (Python)
+# Check for go.mod (Go)
 ```
 
-## Skills with Fallback Strategies
+### If Node.js
 
-```markdown
-## Primary Approach
+[Node.js specific instructions]
 
-Try this first: [Best practice approach]
+### If Python
 
-## If That Fails
+[Python specific instructions]
 
-Fallback to: [Alternative approach]
+### If Go
 
-## Last Resort
-
-Emergency fix: [Quick workaround with limitations]
-```
-
-## Tool Coordination Patterns
-
-Skills can orchestrate multiple tools effectively:
-
-```yaml
-allowed-tools: Read, Grep, Glob, Write, Bash
-```
-
-```markdown
-## Analysis Phase (Read, Grep, Glob)
-1. Read configuration files
-2. Grep for patterns
-3. Glob for related files
-
-## Generation Phase (Write)
-4. Write new implementation
-
-## Validation Phase (Bash)
-5. Run tests
-6. Check linting
-```
-
-## Progressive Enhancement
-
-Skills can suggest progressive improvements:
-
-```markdown
-## Minimum Viable Implementation
-[Quick, working solution]
-
-## Enhanced Version
-[Better performance, more features]
-
-## Production-Grade Version
-[Full error handling, monitoring, documentation]
-```
-
-## Skill Composition Patterns
-
-While skills don't call other skills directly, they can suggest using orchestrator patterns:
-
-```markdown
-## For Complex Workflows
-
-This skill handles [domain A].
-
-For workflows involving [domain A + B + C], consider using:
-- fullstack-orchestrator agent (combines frontend, backend, database skills)
-```
-
-## Context-Aware Skills
-
-Skills can provide different guidance based on detected context:
-
-```markdown
-## Detection
-
-First, check:
-- Language: TypeScript vs JavaScript
-- Framework: React vs Vue vs Angular
-- Build tool: Webpack vs Vite
-
-## Context-Specific Guidance
-
-### TypeScript + React + Vite:
-[Specific instructions for this stack]
-
-### JavaScript + Vue + Webpack:
-[Different instructions for this stack]
-```
-
-## Performance-Optimized Skills
-
-For skills that might use many tokens:
-
-```markdown
-# Quick Start (100 words)
-[Minimal instructions]
-
----
-
-Need more details? Read:
-- [Deep Dive](references/deep-dive.md) - Comprehensive guide
-- [API Reference](references/api.md) - Full API documentation
-- [Examples](references/examples.md) - 20+ examples
-
-This keeps initial load minimal.
-```
-
-## Testing Skills
-
-Skills should include self-testing guidance:
-
-```markdown
-## Verify This Skill Works
-
-1. **Trigger Test**: Use trigger phrase "create deployment workflow"
-2. **Expected**: Skill should activate and provide deployment steps
-3. **Tool Test**: Verify allowed-tools restriction works
-4. **Progressive Test**: Confirm references load on demand
-```
-
-## Versioning Skills
-
-For skills that evolve:
-
-```markdown
----
-name: api-generator
-description: Generate REST APIs (v2.0 - GraphQL support added)
-version: 2.0
----
-
-## What's New in v2.0
-- GraphQL support
-- OpenAPI 3.0 generation
-- Webhook patterns
-
-## Upgrading from v1.x
-[Migration guide]
+[Go specific instructions]
 ```
 
 ## Error Recovery Patterns
 
-Skills should handle common errors:
+```markdown
+## Troubleshooting
+
+### Error: "Connection refused"
+
+**Cause**: Service not running or wrong port.
+
+**Fix**:
+```bash
+# Check if service is running
+python scripts/health_check.py
+
+# Restart if needed
+python scripts/restart_service.py
+```
+
+### Error: "Permission denied"
+
+**Cause**: Insufficient file permissions.
+
+**Fix**:
+```bash
+# Check permissions
+ls -la target_file
+
+# Fix permissions
+chmod +x target_file
+```
+```
+
+## Testing Skills
+
+Include self-testing guidance:
 
 ```markdown
-## Common Issues
+## Verify This Skill Works
 
-### Issue: "Module not found"
-**Cause**: Missing dependency
-**Fix**:
+### Test Scripts
+
 ```bash
-npm install [package]
+# Test each script
+python scripts/operation1.py --help  # Should show usage
+python scripts/operation1.py test_input.pdf test_output.pdf  # Should succeed
 ```
 
-### Issue: "Permission denied"
-**Cause**: Insufficient file permissions
-**Fix**:
-```bash
-chmod +x [script]
+### Test Workflow
+
+1. Create test input files
+2. Run through complete workflow
+3. Verify outputs match expected results
+
+### Common Test Cases
+
+| Input | Expected Output | Script |
+|-------|-----------------|--------|
+| sample.pdf | sample.txt | extract_text.py |
+| portrait.pdf | landscape.pdf | rotate_page.py |
 ```
 
-## Diagnostic Mode
+## Skill Composition
 
-Add `--verbose` flag for debugging:
-[Detailed diagnostic output]
+While skills don't call other skills directly, they can suggest orchestrators:
+
+```markdown
+## For Complex Workflows
+
+This skill handles **PDF processing** only.
+
+For workflows involving multiple domains, consider:
+- Use an orchestrator agent that combines:
+  - pdf-processor (this skill)
+  - data-analyzer
+  - report-generator
+
+Example orchestrator: `fullstack-orchestrator` agent
 ```
 
 ## Security-Conscious Skills
 
-Skills handling sensitive operations:
-
 ```markdown
 ## Security Checklist
 
-Before proceeding:
-- [ ] No credentials in code
-- [ ] Use environment variables
-- [ ] HTTPS only
-- [ ] Input validation implemented
-- [ ] Rate limiting configured
+Before using file processing scripts:
 
-## Sensitive Data Detection
+- [ ] Input files from trusted sources
+- [ ] Output directory has appropriate permissions
+- [ ] No sensitive data in file paths logged
+- [ ] Temporary files cleaned up
 
-Warn if detected:
-- Hardcoded passwords
-- API keys in files
-- Unencrypted secrets
+## Sensitive Data Handling
+
+**Never** include in logs:
+- File contents
+- Personal data
+- Credentials
+
+**Always** sanitize:
+- User-provided file names
+- Path arguments
 ```
 
-## Skill Analytics
-
-Track skill usage (optional):
+## Performance Considerations
 
 ```markdown
-## Usage Patterns
+## For Large Files
 
-This skill is most effective for:
-- ✅ [Common use case 1] (80% success rate)
-- ✅ [Common use case 2] (75% success rate)
-- ⚠️ [Edge case] (requires manual adjustment)
+### Memory Management
+
+For files >100MB, use streaming:
+
+```bash
+python scripts/process.py large_file.pdf --stream
 ```
 
-These advanced patterns help create robust, production-grade skills.
+### Batch Processing
+
+For multiple files:
+
+```bash
+python scripts/batch_process.py input_dir/ output_dir/ --parallel 4
+```
+
+### Progress Reporting
+
+For long operations, use verbose mode:
+
+```bash
+python scripts/process.py input.pdf output.pdf --verbose
+```
+```

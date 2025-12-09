@@ -1,233 +1,235 @@
 ---
-description: Transform existing functionality, projects, or functions into reusable skills. Analyzes existing code with 20-questions approach.
+description: Transform existing code into reusable skills. Analyzes code to determine skill type (knowledge/hybrid/tool), extracts scriptable operations, and documents patterns.
 argument-hint: "[target code/functionality]"
 allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob", "Task", "Skill"]
 ---
 
 # Skillization: Convert Existing Code to Skill
 
-**FIRST: Load the skillmaker:skill-design skill** using the Skill tool to understand how to structure skills properly.
+**FIRST: Load the skillmaker:skill-design skill** using the Skill tool.
 
-Transform existing functionality, projects, or functions into reusable skills.
+Transform existing functionality into reusable skills by analyzing code and determining the appropriate skill type.
 
 ## Your Task
 
-After loading the skill-design skill, use the Task tool to launch the `skill-converter` agent to analyze existing code and convert it to skill format:
+### Step 1: Identify Target
+
+If user specified a target, search for it:
+
+```bash
+# Search for relevant code
+Grep: pattern="{target_keyword}" type="py"
+Glob: pattern="**/*{target}*.{py,ts,js}"
+```
+
+Ask if unclear:
+- What functionality should become a skill?
+- Where is it located? (files, modules)
+
+### Step 2: Analyze Code for Skill Type
+
+**Key Questions**:
+
+1. **Is this code REUSED or REFERENCED?**
+   - Same code copy-pasted → Extract to scripts (Tool)
+   - Patterns followed → Document (Knowledge)
+   - Both → Hybrid
+
+2. **Does it manipulate files or call external tools?**
+   - Yes → Likely Tool skill with scripts
+   - No → Likely Knowledge skill
+
+3. **Is reliability critical?**
+   - Yes → Scripts for deterministic behavior
+   - No → Documentation may suffice
+
+### Step 3: Launch skill-converter Agent
+
+Use the Task tool:
 
 ```
 Task tool with:
-- subagent_type: "general-purpose"
-- description: "Convert existing code to skill"
-- prompt: "You are the skill-converter agent from the skillmaker plugin.
+- subagent_type: "skillmaker:skill-converter"
+- description: "Convert code to skill"
+- prompt: "Analyze and convert existing code to a skill:
 
-Your role is to analyze existing code/functionality and transform it into a reusable skill.
+Target: {user_specified_target}
+Files found: {list of relevant files}
 
-## Context
-User request: {user_provided_target_if_any}
-Codebase: Available via Read, Grep, Glob tools
+Your process:
+1. Read and analyze the code
+2. Identify scriptable operations vs documentable patterns
+3. Determine skill type (knowledge/hybrid/tool)
+4. Design the skill structure
+5. Extract scripts (if tool/hybrid)
+6. Document patterns and knowledge
 
-## Your Process
+Use scripts/init_skill.py to initialize and scripts/validate_skill.py to validate.
 
-1. **Discovery** (3-5 questions)
-   - What functionality should be skillized?
-   - Where is it located? (files, functions, modules)
-   - What's the current usage pattern?
-
-2. **Analysis** (Use tools to explore)
-   - Read relevant code files
-   - Understand dependencies and patterns
-   - Identify core logic vs boilerplate
-
-3. **Clarification** (3-5 questions)
-   - Should the skill wrap existing code or document it?
-   - What variations/options exist?
-   - What context does a user need to provide?
-
-4. **Extraction**
-   - Identify the core knowledge/pattern
-   - Determine trigger phrases
-   - Design progressive disclosure structure
-
-5. **Present Skill Design**
-   - DO NOT create files yourself
-   - Return structured design to the command
-   - SKILL.md should include:
-     - Clear description of the functionality
-     - When to use it
-     - How it wraps/uses existing code
-     - Trigger phrases based on current usage
-   - Add reference.md if complex patterns exist
-   - Include examples.md with actual usage from codebase
-
-## Key Principles
-
-- **Preserve existing code**: Skills should reference/use existing code, not duplicate it
-- **Document patterns**: Extract the "how" and "when", not just the "what"
-- **Real examples**: Use actual code from the project as examples
-- **Clear triggers**: Base trigger phrases on how the functionality is currently used
-
-## Output Format
-
-After completing the analysis and design, return it in this format:
-
-=== SKILL DESIGN ===
-NAME: {skill-name}
-DESCRIPTION: {full description with trigger phrases}
-ALLOWED_TOOLS: ["Tool1", "Tool2", "Tool3"]
-
-=== SKILL.MD CONTENT ===
----
-name: {skill-name}
-description: {description}
-allowed-tools: ["Tool1", "Tool2"]
----
-
-# {Skill Title}
-
-{Full SKILL.md markdown content that references existing code}
-
-=== END SKILL.MD ===
-
-REFERENCES_NEEDED: {yes|no}
-{If yes, for each reference file:}
-REFERENCE_FILE: {filename}.md
-{content with code patterns from codebase}
-END_REFERENCE_FILE
-
-EXAMPLES_NEEDED: {yes|no}
-{If yes, for each example file:}
-EXAMPLE_FILE: {filename}.md
-{content with actual usage examples from codebase}
-END_EXAMPLE_FILE
-
-This structured format allows the command to parse and create all necessary files.
+Return:
+- Skill name and type with reasoning
+- SKILL.md content
+- Scripts (with full implementations if tool/hybrid)
+- References content
+- What code to REFERENCE (not duplicate)
 "
 ```
 
-Note: If the user specified a target (e.g., `/skillmaker:skillization our auth middleware`), include it in the prompt.
+### Step 4: Review Conversion Plan
 
-## Step 2: Review Design and Confirm
+Present to user:
 
-After the skill-converter agent completes, you will receive a structured skill design.
+```
+🔄 Skillization Analysis Complete
 
-1. **Parse the agent's output** to extract:
-   - Skill name
-   - Description
-   - Allowed tools
-   - SKILL.md content
-   - References files (if any)
-   - Examples files (if any)
+Source Code:
+- {file1.py} - {description}
+- {file2.py} - {description}
 
-2. **Present design summary to user**:
-   ```
-   ✨ Skillization Complete
+Recommended Type: {Knowledge | Hybrid | Tool} Skill
+Reason: {why this type}
 
-   Name: {skill-name}
-   Description: {description}
+Components:
 
-   Wraps existing code: {file paths or modules}
+Scripts to Extract (if tool/hybrid):
+| Source | → Script | Purpose |
+|--------|----------|---------|
+| src/utils/x.py:func | scripts/x.py | {purpose} |
 
-   Trigger Phrases:
-   - {phrase1}
-   - {phrase2}
-   - {phrase3}
+Knowledge to Document:
+| Topic | Source | Content |
+|-------|--------|---------|
+| {topic} | {file:lines} | {what} |
 
-   Allowed Tools: {tools}
+Code to Reference (not duplicate):
+- {file:lines} - {description}
 
-   Structure:
-   - SKILL.md (wraps existing functionality)
-   - references/{filename}.md (code patterns, if needed)
-   - examples/{filename}.md (actual usage examples from codebase)
-   ```
+Implicit Knowledge:
+- {knowledge point 1}
+- {knowledge point 2}
 
-3. **Ask for confirmation**:
-   "Ready to create this skill? This will create files in .claude/skills/{skill-name}/"
+Ready to create this skill?
+```
 
-4. **Wait for user confirmation** before proceeding to Step 3.
+### Step 5: Create Skill
 
-## Step 3: Create Skill Files
-
-**IMPORTANT**: Files must be created in the PROJECT's .claude directory (current working directory), NOT the plugin directory.
-
-### 3.1 Create Directory Structure
-
-Use Bash tool to create directories:
+After confirmation:
 
 ```bash
-mkdir -p .claude/skills/{skill-name}
-mkdir -p .claude/skills/{skill-name}/references  # if references needed
-mkdir -p .claude/skills/{skill-name}/examples    # if examples needed
+# Initialize structure
+python ${CLAUDE_PLUGIN_ROOT}/scripts/init_skill.py {skill-name} --type {type} --path .claude/skills
 ```
 
-### 3.2 Write SKILL.md
+### Step 6: Implement Components
 
-Use Write tool:
-- **Path**: `.claude/skills/{skill-name}/SKILL.md`
-- **Content**: Extract the SKILL.md content from between `=== SKILL.MD CONTENT ===` and `=== END SKILL.MD ===`
+**For scripts/** (if tool/hybrid):
+1. Extract functions from source code
+2. Make standalone with argparse
+3. Add error handling
+4. Test with real inputs
+5. Make executable: `chmod +x scripts/*.py`
 
-The content must include YAML frontmatter:
-```yaml
----
-name: {skill-name}
-description: {description with trigger phrases}
-allowed-tools: ["Tool1", "Tool2"]
----
+**For SKILL.md**:
+1. Document workflow
+2. Link to existing code (don't duplicate)
+3. Include script usage table
+4. Add trigger phrases
+
+**For references/**:
+1. Detailed patterns
+2. Edge cases and gotchas
+3. Links to source implementation
+
+### Step 7: Validate and Test
+
+```bash
+# Validate structure
+python ${CLAUDE_PLUGIN_ROOT}/scripts/validate_skill.py .claude/skills/{skill-name}
+
+# Test scripts (if tool/hybrid)
+python .claude/skills/{skill-name}/scripts/example.py --help
 ```
 
-### 3.3 Write Supporting Files
+### Step 8: Show Completion
 
-**For each reference file** (if REFERENCES_NEEDED: yes):
-- Extract content between `REFERENCE_FILE: {filename}.md` and `END_REFERENCE_FILE`
-- Use Write tool
-- Path: `.claude/skills/{skill-name}/references/{filename}.md`
-- Content: Extracted reference content (should include code patterns from existing codebase)
-
-**For each example file** (if EXAMPLES_NEEDED: yes):
-- Extract content between `EXAMPLE_FILE: {filename}.md` and `END_EXAMPLE_FILE`
-- Use Write tool
-- Path: `.claude/skills/{skill-name}/examples/{filename}.md`
-- Content: Extracted example content (should include actual usage from existing code)
-
-### 3.4 Verify Creation
-
-Use Glob tool to verify all files were created:
-```
-Pattern: .claude/skills/{skill-name}/**/*
-```
-
-Confirm all expected files exist.
-
-### 3.5 Show Confirmation
-
-Display to user:
 ```
 ✅ Created skill: {skill-name}
 
+Type: {type}
+
+Converted from:
+- {source_file1}
+- {source_file2}
+
 Files created:
 - .claude/skills/{skill-name}/SKILL.md
-- .claude/skills/{skill-name}/references/{filename}.md (if applicable)
-- .claude/skills/{skill-name}/examples/{filename}.md (if applicable)
+- .claude/skills/{skill-name}/scripts/{script}.py (if applicable)
+- .claude/skills/{skill-name}/references/{ref}.md
 
-Skill is ready to use!
+References existing code:
+- {file:lines} (linked, not duplicated)
 
-This skill wraps your existing code in: {file paths}
+Validation: ✅ Passed
 
 Usage:
-- Load explicitly: Use Skill tool with "{skill-name}"
-- In agents: Add to YAML frontmatter: skills: {skill-name}
-- In commands: Add "FIRST: Load {skill-name} skill"
+- Load: Use Skill tool with "{skill-name}"
+- In agents: skills: {skill-name}
 
 Next steps:
-- Test the skill with requests that previously used the original code
-- Verify the skill properly references existing functionality
-- Create a specialized agent using this skill (use /skillmaker:skill-cover)
-- Share with your team to standardize usage patterns
+1. Test with requests that used the original code
+2. Verify skill references existing code correctly
+3. Create an agent: /skillmaker:skill-cover
+```
+
+## Scriptability Decision Matrix
+
+| Code Characteristic | Action |
+|---------------------|--------|
+| Same function called repeatedly | → Script it |
+| Complex algorithm | → Script it |
+| File format manipulation | → Script it |
+| External API calls | → Script it |
+| Decision-making logic | → Document it |
+| Context-dependent choices | → Document it |
+| Tribal knowledge | → Document it |
+
+## Example Conversion
+
+```
+User: Convert our auth middleware to a skill
+
+[Grep for auth-related code]
+Found: src/middleware/auth.ts, src/utils/jwt.ts
+
+[Read files]
+
+Analysis:
+- JWT generation/validation: Deterministic, repeatable → Could script
+- But: Already works in codebase, no need to extract
+- Decision logic: Which routes need auth → Document
+- Implicit knowledge: Token expiry strategy → Document
+
+Recommendation: Knowledge Skill
+
+Because:
+- Code already works (no need to extract)
+- Value is in DOCUMENTING the patterns
+- Different contexts need different decisions
+
+Structure:
+auth-patterns/
+├── SKILL.md          # When/how to apply auth
+└── references/
+    ├── implementation.md  # Links to actual code
+    └── security.md        # Security guidelines
+
+SKILL.md will REFERENCE auth.ts, not duplicate it.
 ```
 
 ## Important Notes
 
-- **File location**: Create files in PROJECT's `.claude/` directory (current working directory), NOT the plugin's `.claude/`
-- **Path format**: Use relative paths like `.claude/skills/{name}/SKILL.md`
-- **Verification**: Always verify files were created before confirming to user
-- **Preserve code**: Skills should reference existing code, not duplicate it
-- **Examples**: Use actual code examples from the project in the examples/ directory
+- **Reference, don't duplicate** - Link to existing code
+- **Extract scripts only if needed** - Working code doesn't always need extraction
+- **Capture implicit knowledge** - Document the WHY
+- **Use init_skill.py** - Proper structure
+- **Validate before done** - Catch issues early
