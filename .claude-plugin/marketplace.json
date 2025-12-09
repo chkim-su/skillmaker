@@ -3,17 +3,17 @@
   "description": "Skillmaker: Create perfect skills and subagents that use them with isolated context",
   "version": "1.0.0",
   "owner": {
-    "name": "Claude Code Community"
+    "name": "Chanho KIM"
   },
-  "homepage": "https://github.com/yourusername/skillmaker",
+  "homepage": "https://github.com/chkim-su/skillmaker",
   "plugins": [
     {
       "name": "skillmaker",
-      "source": "./plugins/skillmaker",
+      "source": "./",
       "description": "Create perfect skills and subagents that use them explicitly. Solve the context window problem with skill-based architecture.",
       "version": "1.0.0",
       "author": {
-        "name": "Claude Code Community"
+        "name": "Chanho KIM"
       },
       "category": "productivity"
     }
