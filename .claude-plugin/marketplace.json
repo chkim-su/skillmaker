@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "skillmaker",
-      "source": "./",
+      "source": "./plugins/skillmaker",
       "description": "Create perfect skills and subagents that use them explicitly. Solve the context window problem with skill-based architecture.",
       "version": "1.0.0",
       "author": {
