@@ -1,7 +1,7 @@
 ---
 description: Create a subagent that explicitly uses one or multiple skills. Determines if single-skill consumer or multi-skill orchestrator.
 argument-hint: "[subagent purpose]"
-allowed-tools: [Read, Write, Bash, Grep, Glob, Task]
+allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob", "Task"]
 ---
 
 # Skill Cover: Create Subagent for Skills

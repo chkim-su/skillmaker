@@ -1,7 +1,7 @@
 ---
 description: Create a brand new skill from scratch based on conversation context or user goals. Uses 20-questions clarification approach.
 argument-hint: "[skill description]"
-allowed-tools: [Read, Write, Bash, Grep, Glob, Task]
+allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob", "Task"]
 ---
 
 # Create New Skill
