@@ -1,3 +1,9 @@
+---
+description: Transform existing functionality, projects, or functions into reusable skills. Analyzes existing code with 20-questions approach.
+argument-hint: "[target code/functionality]"
+allowed-tools: [Read, Write, Bash, Grep, Glob, Task]
+---
+
 # Skillization: Convert Existing Code to Skill
 
 Transform existing functionality, projects, or functions into reusable skills.
