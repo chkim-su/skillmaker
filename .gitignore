@@ -1,0 +1,22 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary
+*.tmp
+*.log
+.cache/
+
+# Node (if any tests added)
+node_modules/
+package-lock.json
+
+# Ignore problematic subdirectories
+claude-skill-maker/
