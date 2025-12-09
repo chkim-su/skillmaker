@@ -6,7 +6,7 @@
 
 ```bash
 # Add the marketplace
-/plugin marketplace add yourusername/skillmaker
+/plugin marketplace add chkim-su/skillmaker
 
 # Install the plugin
 /plugin install skillmaker@skillmaker-marketplace
@@ -20,7 +20,7 @@
 
 ```bash
 # 1. Clone or copy this directory to your system
-git clone https://github.com/yourusername/skillmaker.git
+git clone https://github.com/chkim-su/skillmaker.git
 # or
 cp -r /path/to/skillmaker ~/.claude/plugins/skillmaker
 
@@ -54,6 +54,7 @@ You should see:
 - `/skillmaker:skill-new`
 - `/skillmaker:skillization`
 - `/skillmaker:skill-cover`
+- `/skillmaker:command-maker`
 
 ---
 
@@ -67,7 +68,7 @@ For teams, add to `.claude/settings.json`:
     "skillmaker": {
       "source": {
         "source": "github",
-        "repo": "yourusername/skillmaker"
+        "repo": "chkim-su/skillmaker"
       }
     }
   },
