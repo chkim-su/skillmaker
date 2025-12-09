@@ -1,16 +1,18 @@
 ---
 description: Transform existing functionality, projects, or functions into reusable skills. Analyzes existing code with 20-questions approach.
 argument-hint: "[target code/functionality]"
-allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob", "Task"]
+allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob", "Task", "Skill"]
 ---
 
 # Skillization: Convert Existing Code to Skill
+
+**FIRST: Load the skillmaker:skill-design skill** using the Skill tool to understand how to structure skills properly.
 
 Transform existing functionality, projects, or functions into reusable skills.
 
 ## Your Task
 
-Use the Task tool to launch the `skill-converter` agent to analyze existing code and convert it to skill format:
+After loading the skill-design skill, use the Task tool to launch the `skill-converter` agent to analyze existing code and convert it to skill format:
 
 ```
 Task tool with:

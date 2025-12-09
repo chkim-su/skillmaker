@@ -1,16 +1,18 @@
 ---
 description: Create a subagent that explicitly uses one or multiple skills. Determines if single-skill consumer or multi-skill orchestrator.
 argument-hint: "[subagent purpose]"
-allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob", "Task"]
+allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob", "Task", "Skill"]
 ---
 
 # Skill Cover: Create Subagent for Skills
+
+**FIRST: Load the skillmaker:orchestration-patterns skill** using the Skill tool to understand single-skill vs multi-skill architectures.
 
 Create a subagent that explicitly uses one or multiple skills, providing isolated context window.
 
 ## Your Task
 
-Use the Task tool to launch the `skill-orchestrator-designer` agent to create a subagent wrapper:
+After loading the orchestration-patterns skill, use the Task tool to launch the `skill-orchestrator-designer` agent to create a subagent wrapper:
 
 ```
 Task tool with:

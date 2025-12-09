@@ -1,16 +1,18 @@
 ---
 description: Create a brand new skill from scratch based on conversation context or user goals. Uses 20-questions clarification approach.
 argument-hint: "[skill description]"
-allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob", "Task"]
+allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob", "Task", "Skill"]
 ---
 
 # Create New Skill
+
+**FIRST: Load the skillmaker:skill-design skill** using the Skill tool to understand skill structure, progressive disclosure, and trigger phrases.
 
 Create a brand new skill from scratch based on conversation context or user goals.
 
 ## Your Task
 
-Use the Task tool to launch the `skill-architect` agent to guide the user through creating a new skill:
+After loading the skill-design skill, use the Task tool to launch the `skill-architect` agent to guide the user through creating a new skill:
 
 ```
 Task tool with:
