@@ -55,11 +55,46 @@ Verify:
 - [ ] GitHub plugins: must use object format `{"source": "github", "repo": "user/repo"}`
 - [ ] No bare paths like `"source": "my-plugin"` (will cause "must start with ./" error)
 
-**Explicit Registration Validation** (if marketplace.json has commands/skills/agents arrays):
-- [ ] All files in `commands/` are listed in `commands` array
-- [ ] All files in `agents/` are listed in `agents` array
-- [ ] All directories in `skills/` are listed in `skills` array
-- [ ] No entries in arrays point to non-existent files
+#### Check 1.5: Registration Integrity (MANDATORY - RUN SCRIPT FIRST)
+
+**⚠️ THIS IS THE MOST COMMON CAUSE OF DEPLOYMENT FAILURES ⚠️**
+
+**YOU MUST RUN THIS SCRIPT BEFORE ANYTHING ELSE:**
+
+```bash
+# Run the registration validator script
+python3 scripts/validate_registration.py
+```
+
+**If script not found, use this alternative:**
+```bash
+# Alternative: Download and run from skillmaker plugin
+curl -sL https://raw.githubusercontent.com/chkim-su/skillmaker/main/scripts/validate_registration.py | python3 - .
+```
+
+**STOP HERE IF ERRORS ARE FOUND!**
+- Exit code 0 = All passed, continue to next checks
+- Exit code 1 = ERRORS found, **STOP and report errors**
+- Exit code 2 = Warnings only, continue but report warnings
+
+**What the script validates:**
+1. All registered commands in marketplace.json have corresponding files
+2. All command files are registered (no orphan files)
+3. Same for agents and skills
+4. Source path format is correct (`./` prefix for local)
+5. Path format consistency (all with .md or all without)
+
+**Common errors detected:**
+```
+❌ ./commands/foo -> commands/foo.md NOT FOUND
+   Fix: Create the file or remove from marketplace.json
+
+❌ commands/bar.md exists but NOT REGISTERED
+   Fix: Add "./commands/bar" to marketplace.json commands array
+
+❌ source "my-plugin" must start with "./"
+   Fix: Change to "./my-plugin"
+```
 
 #### Check 2: Required Directories
 
