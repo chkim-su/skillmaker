@@ -481,6 +481,54 @@ ambiguous-skill/
 }
 ```
 
+### ❌ Mistake 10: Multi-Plugin Marketplace Structure Wrong
+```
+# Wrong: Multi-plugin marketplace with files at root
+my-marketplace/
+├── .claude-plugin/
+│   ├── marketplace.json    # marketplace 정의
+│   └── plugin.json         # plugin 정의 (혼동 유발!)
+├── commands/               # 루트에 직접
+├── agents/
+└── skills/
+
+# Correct: Multi-plugin marketplace with plugins/ subdirectory
+my-marketplace/
+├── .claude-plugin/
+│   └── marketplace.json    # 마켓플레이스만 정의
+└── plugins/
+    └── my-plugin/
+        ├── .claude-plugin/
+        │   └── plugin.json # 플러그인만 정의
+        ├── commands/
+        ├── agents/
+        └── skills/
+```
+
+**규칙:**
+- 마켓플레이스 루트: `.claude-plugin/marketplace.json`만
+- 각 플러그인: `plugins/{name}/.claude-plugin/plugin.json`
+- `source: "./plugins/{name}"` 형식 사용
+
+### ❌ Mistake 11: Commands/Skills/Agents Not Recognized
+```
+# 원인: marketplace.json에서 source 경로와 실제 파일 위치 불일치
+
+# 증상
+- /skillmaker:skill-new 명령어가 안 뜸
+- 스킬이 Available Skills에 안 보임
+- 에이전트가 Task tool에서 사용 불가
+
+# 진단 방법
+1. marketplace.json의 source 경로 확인
+2. 해당 경로에 실제로 commands/, agents/, skills/ 존재 확인
+3. Claude Code 재시작 후 재확인
+
+# 해결
+- source 경로가 실제 플러그인 파일 위치와 일치하도록 수정
+- 또는 플러그인 파일을 source 경로로 이동
+```
+
 ## Important Notes
 
 - Run from plugin root directory
