@@ -22,6 +22,7 @@
         "./skills/orchestration-patterns"
       ],
       "commands": [
+        "./commands/wizard",
         "./commands/skill-new",
         "./commands/skillization",
         "./commands/skill-cover",

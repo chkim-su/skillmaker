@@ -16,8 +16,23 @@ python3 scripts/validate_all.py
 
 **Decision:**
 - Exit 0 → Continue to Step 2
-- Exit 1 (errors) → STOP. Report errors from script output.
+- Exit 1 (errors) → Ask user: "Found fixable errors. Run `--fix` to auto-repair?"
+  - If yes: Run `python3 scripts/validate_all.py --fix`
+  - If no: Report errors and STOP
 - Exit 2 (warnings) → Continue but note warnings
+
+**Auto-fix Options:**
+```bash
+python3 scripts/validate_all.py --fix           # Auto-fix all issues
+python3 scripts/validate_all.py --fix --dry-run # Preview fixes only
+```
+
+**Fixable Issues:**
+- Missing files registered in marketplace.json → Create stub files
+- Unregistered files → Add to marketplace.json
+- Missing frontmatter → Add default frontmatter
+- Source path format → Add "./" prefix
+- Script not executable → chmod +x
 
 ## Step 2: Parallel Subagent Quality Validation
 

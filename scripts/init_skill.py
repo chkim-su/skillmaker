@@ -3,13 +3,17 @@
 Initialize a new skill directory with proper structure.
 
 Usage:
-    python init_skill.py <skill-name> [--path <output-directory>] [--type <knowledge|hybrid|tool>]
+    python init_skill.py <skill-name> [--path <output-directory>] [--type <type>] [--structure <structure>]
+
+Type: Determines tools and directories (knowledge, hybrid, tool, expert)
+Structure: Determines SKILL.md organization (workflow, task, reference, capabilities)
 
 Examples:
     python init_skill.py my-skill
     python init_skill.py my-skill --path .claude/skills
-    python init_skill.py pdf-processor --type tool
-    python init_skill.py code-review --type knowledge
+    python init_skill.py pdf-processor --type tool --structure task
+    python init_skill.py deploy-checker --type hybrid --structure workflow
+    python init_skill.py code-style --type knowledge --structure reference
 """
 
 import argparse
@@ -49,11 +53,221 @@ SKILL_TYPES = {
     },
 }
 
+# Structure patterns (orthogonal to skill type)
+STRUCTURE_PATTERNS = {
+    "workflow": "Sequential multi-step tasks with decision points",
+    "task": "Single-purpose input->process->output transformation",
+    "reference": "Rules, standards, and best practices documentation",
+    "capabilities": "Toolkit of related features/functions",
+}
 
-def create_skill_md(skill_name: str, skill_type: str) -> str:
-    """Generate SKILL.md content based on skill type."""
+
+def create_structure_template(skill_name: str, structure: str, tools: str) -> str:
+    """Generate SKILL.md content based on structure pattern."""
+    title = skill_name.replace("-", " ").title()
+
+    if structure == "workflow":
+        return f'''---
+name: {skill_name}
+description: |
+  TODO: Describe what this skill does.
+  Trigger phrases: "phrase1", "phrase2"
+allowed-tools: {tools}
+---
+
+# {title}
+
+TODO: 2-3 sentence overview.
+
+## Step 1: [Initial Action]
+
+TODO: First step instructions.
+
+**Script:** `python scripts/step1.py`
+
+→ If success: Continue to Step 2
+→ If error: STOP and report
+
+## Step 2: [Processing]
+
+TODO: Second step instructions.
+
+→ If condition A: Go to Step 3a
+→ If condition B: Go to Step 3b
+
+## Step 3a: [Branch A]
+
+TODO: Branch A instructions.
+
+## Step 3b: [Branch B]
+
+TODO: Branch B instructions.
+
+## Step 4: [Finalization]
+
+TODO: Final step.
+
+---
+
+For details: [references/workflow-details.md](references/workflow-details.md)
+'''
+
+    elif structure == "task":
+        return f'''---
+name: {skill_name}
+description: |
+  TODO: Describe what this skill does.
+  Trigger phrases: "phrase1", "phrase2"
+allowed-tools: {tools}
+---
+
+# {title}
+
+TODO: 2-3 sentence overview.
+
+## Input
+
+- **Required:** `input_file` - Description
+- **Optional:** `--option` - Description
+
+## Process
+
+```bash
+python scripts/process.py <input> <output> [options]
+```
+
+## Output
+
+- **Format:** TODO (JSON, file, etc.)
+- **Location:** TODO
+
+## Scripts
+
+| Script | Purpose | Usage |
+|--------|---------|-------|
+| `process.py` | Main processing | `python scripts/process.py input output` |
+| `validate.py` | Validate output | `python scripts/validate.py output` |
+
+---
+
+For details: [references/processing-details.md](references/processing-details.md)
+'''
+
+    elif structure == "reference":
+        return f'''---
+name: {skill_name}
+description: |
+  TODO: Describe what guidelines/standards this provides.
+  Trigger phrases: "phrase1", "phrase2"
+allowed-tools: {tools}
+---
+
+# {title}
+
+TODO: 2-3 sentence overview of these guidelines.
+
+## Core Rules
+
+### Rule 1: [Name]
+
+- **Do:** TODO
+- **Don't:** TODO
+
+### Rule 2: [Name]
+
+- **Do:** TODO
+- **Don't:** TODO
+
+## Quick Reference
+
+| Scenario | Recommendation |
+|----------|---------------|
+| A | Do X |
+| B | Do Y |
+
+## Examples
+
+### Good Example
+
+```
+TODO: Show correct approach
+```
+
+### Bad Example
+
+```
+TODO: Show incorrect approach
+```
+
+---
+
+For details: [references/detailed-guidelines.md](references/detailed-guidelines.md)
+'''
+
+    else:  # capabilities
+        return f'''---
+name: {skill_name}
+description: |
+  TODO: Describe what capabilities this provides.
+  Trigger phrases: "phrase1", "phrase2"
+allowed-tools: {tools}
+---
+
+# {title}
+
+TODO: 2-3 sentence overview.
+
+## Available Capabilities
+
+| Capability | Description | Script |
+|-----------|-------------|--------|
+| Feature A | TODO | `scripts/feature_a.py` |
+| Feature B | TODO | `scripts/feature_b.py` |
+| Feature C | TODO | `scripts/feature_c.py` |
+
+## Feature A
+
+### Usage
+
+```bash
+python scripts/feature_a.py [args]
+```
+
+### Options
+
+- `--option1`: Description
+- `--option2`: Description
+
+## Feature B
+
+### Usage
+
+```bash
+python scripts/feature_b.py [args]
+```
+
+## Combining Features
+
+### Common Workflows
+
+1. **A then B:** `feature_a.py input | feature_b.py`
+2. **Full pipeline:** A → B → C
+
+---
+
+For details: [references/capability-details.md](references/capability-details.md)
+'''
+
+
+def create_skill_md(skill_name: str, skill_type: str, structure: str = None) -> str:
+    """Generate SKILL.md content based on skill type and optional structure."""
     config = SKILL_TYPES[skill_type]
 
+    # If structure is specified, use structure-based template
+    if structure:
+        return create_structure_template(skill_name, structure, config["tools"])
+
+    # Otherwise, use type-based template (legacy behavior)
     if skill_type == "knowledge":
         return f'''---
 name: {skill_name}
@@ -616,7 +830,7 @@ TODO: Linux-specific issues and solutions
     return templates.get(ref_name, f"# {ref_name}\n\nTODO: Add content for {ref_name}\n")
 
 
-def init_skill(skill_name: str, output_path: Path, skill_type: str) -> None:
+def init_skill(skill_name: str, output_path: Path, skill_type: str, structure: str = None) -> None:
     """Initialize a skill directory with proper structure."""
     skill_dir = output_path / skill_name
 
@@ -632,7 +846,7 @@ def init_skill(skill_name: str, output_path: Path, skill_type: str) -> None:
 
     # Create SKILL.md
     skill_md = skill_dir / "SKILL.md"
-    skill_md.write_text(create_skill_md(skill_name, skill_type))
+    skill_md.write_text(create_skill_md(skill_name, skill_type, structure))
     print(f"Created: {skill_md}")
 
     # Create subdirectories based on type
@@ -680,6 +894,8 @@ def init_skill(skill_name: str, output_path: Path, skill_type: str) -> None:
 
     print(f"\n✅ Skill '{skill_name}' initialized successfully!")
     print(f"\nType: {skill_type} ({config['description']})")
+    if structure:
+        print(f"Structure: {structure} ({STRUCTURE_PATTERNS[structure]})")
     print(f"\nNext steps:")
     print(f"  1. Edit {skill_md} to define your skill")
     if config["scripts"]:
@@ -692,18 +908,25 @@ def main():
         description="Initialize a new skill directory with proper structure",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Skill Types:
+Skill Types (--type): Determines tools and directories
   knowledge  - For analysis, guidance, best practices (Read, Grep, Glob)
   hybrid     - Guidance + helper scripts (Read, Write, Grep, Glob, Bash)
   tool       - File manipulation, automation (Read, Write, Bash)
   expert     - Complex domain knowledge, comprehensive docs (OOXML, formats, etc.)
 
+Structure Patterns (--structure): Determines SKILL.md organization
+  workflow     - Sequential multi-step tasks with decision points
+  task         - Single-purpose input->process->output transformation
+  reference    - Rules, standards, and best practices documentation
+  capabilities - Toolkit of related features/functions
+
 Examples:
   %(prog)s my-skill
   %(prog)s my-skill --path .claude/skills
-  %(prog)s pdf-processor --type tool
-  %(prog)s code-review --type knowledge
-  %(prog)s pptx-builder --type expert
+  %(prog)s pdf-processor --type tool --structure task
+  %(prog)s deploy-checker --type hybrid --structure workflow
+  %(prog)s code-style --type knowledge --structure reference
+  %(prog)s webapp-testing --type tool --structure capabilities
         """
     )
     parser.add_argument("skill_name", help="Name of the skill (kebab-case)")
@@ -718,6 +941,12 @@ Examples:
         default="hybrid",
         help="Skill type (default: hybrid)"
     )
+    parser.add_argument(
+        "--structure",
+        choices=["workflow", "task", "reference", "capabilities"],
+        default=None,
+        help="SKILL.md structure pattern (default: type-based template)"
+    )
 
     args = parser.parse_args()
 
@@ -731,7 +960,7 @@ Examples:
     if not output_path.exists():
         output_path.mkdir(parents=True)
 
-    init_skill(args.skill_name, output_path, args.type)
+    init_skill(args.skill_name, output_path, args.type, args.structure)
 
 
 if __name__ == "__main__":
