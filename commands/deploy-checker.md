@@ -122,6 +122,73 @@ For each script in `scripts/*.py` or `scripts/*.sh`:
 - [ ] All `[references/xxx.md]` links point to existing files
 - [ ] All `scripts/xxx.py` references point to existing files
 
+#### Check 8: Hooks (if hooks/ directory exists)
+
+```bash
+# Check for hooks configuration
+Read: hooks/hooks.json
+```
+
+Verify:
+- [ ] `hooks.json` is valid JSON
+- [ ] Each hook has required fields: `event`, `command`
+- [ ] Event types are valid: `PreToolUse`, `PostToolUse`, `Notification`, `Stop`
+- [ ] Commands are executable or valid shell commands
+- [ ] No TODO in hook descriptions
+- [ ] Shell commands don't have security issues (no unescaped inputs)
+
+**Hook Event Types**:
+- `PreToolUse`: Runs before a tool is used (can block/modify)
+- `PostToolUse`: Runs after a tool completes
+- `Notification`: For non-blocking notifications
+- `Stop`: Runs when Claude stops responding
+
+**Hook Matchers** (optional):
+- `toolName`: Match specific tools (e.g., `"Bash"`, `"Write"`)
+- `pattern`: Regex pattern for matching
+
+#### Check 9: MCP Configuration (if .mcp.json exists)
+
+```bash
+# Check for MCP configuration
+Read: .mcp.json
+```
+
+Verify:
+- [ ] Valid JSON syntax
+- [ ] Each server has `command` field
+- [ ] Commands reference existing executables
+- [ ] Args are properly formatted
+- [ ] Environment variables don't expose secrets in plaintext
+
+#### Check 10: Settings Files (if .local.md exists)
+
+```bash
+# Check for settings template
+Read: .local.md
+```
+
+Verify:
+- [ ] Template has clear instructions for user configuration
+- [ ] Placeholder values are clearly marked (e.g., `<YOUR_VALUE>`)
+- [ ] No hardcoded secrets or personal paths
+- [ ] Documentation for each setting
+
+#### Check 11: README.md Quality
+
+```bash
+# Check README
+Read: README.md
+```
+
+Verify:
+- [ ] README.md exists
+- [ ] Installation instructions present
+- [ ] Usage examples included
+- [ ] List of commands/skills/agents documented
+- [ ] Prerequisites/dependencies listed
+- [ ] No TODO placeholders in visible sections
+
 ### Step 3: Generate Report
 
 Present results in this format:
@@ -181,6 +248,30 @@ Present results in this format:
 │ ❌ Broken link: references/missing.md in skill-design        │
 └─────────────────────────────────────────────────────────────┘
 
+┌─────────────────────────────────────────────────────────────┐
+│ HOOKS (optional)                                             │
+├─────────────────────────────────────────────────────────────┤
+│ ✅ hooks/hooks.json valid                                    │
+│ ✅ 2 hooks defined                                           │
+│ ⚠️  Hook command uses inline shell (consider script)         │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ MCP CONFIGURATION (optional)                                 │
+├─────────────────────────────────────────────────────────────┤
+│ ✅ .mcp.json valid                                           │
+│ ✅ 1 server configured                                       │
+│ ❌ Server command not found: /path/to/server                 │
+└─────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│ SETTINGS & README                                            │
+├─────────────────────────────────────────────────────────────┤
+│ ⚠️  .local.md not found (optional)                           │
+│ ✅ README.md exists                                          │
+│ ⚠️  README missing: Usage examples                           │
+└─────────────────────────────────────────────────────────────┘
+
 ═══════════════════════════════════════════════════════════════
                          SUMMARY
 ═══════════════════════════════════════════════════════════════
@@ -238,6 +329,9 @@ If all checks pass:
 ║  Agents: 3                                                    ║
 ║  Skills: 3                                                    ║
 ║  Scripts: 2                                                   ║
+║  Hooks: 2 (optional)                                          ║
+║  MCP Servers: 1 (optional)                                    ║
+║  README: ✅                                                   ║
 ║                                                               ║
 ║  All checks passed! Plugin is ready for deployment.           ║
 ║                                                               ║
@@ -565,6 +659,238 @@ my-marketplace/
 - [ ] 새 커맨드 생성 → marketplace.json의 `commands` 배열에 추가
 - [ ] 새 에이전트 생성 → marketplace.json의 `agents` 배열에 추가
 - [ ] 새 스킬 생성 → marketplace.json의 `skills` 배열에 추가
+
+### ❌ Mistake 13: Invalid Hook Configuration
+```json
+// Wrong: Invalid event type
+{
+  "hooks": [
+    {
+      "event": "BeforeRun",  // Invalid!
+      "command": "echo hello"
+    }
+  ]
+}
+
+// Wrong: Missing required fields
+{
+  "hooks": [
+    {
+      "event": "PreToolUse"
+      // Missing "command"!
+    }
+  ]
+}
+
+// Correct: Valid hook structure
+{
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "matcher": {
+        "toolName": "Bash"
+      },
+      "command": "/path/to/validator.sh"
+    }
+  ]
+}
+```
+
+**Valid Event Types:**
+- `PreToolUse` - Before tool execution (can block/modify)
+- `PostToolUse` - After tool completes
+- `Notification` - Non-blocking notifications
+- `Stop` - When Claude stops responding
+
+**Hook File Location:**
+```
+# Correct location
+my-plugin/
+├── hooks/
+│   └── hooks.json     # Hook definitions
+└── ...
+```
+
+### ❌ Mistake 14: Hook Command Security Issues
+```json
+// Wrong: Unescaped input can cause command injection
+{
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "command": "echo $INPUT"  // Dangerous!
+    }
+  ]
+}
+
+// Correct: Use script with proper input handling
+{
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "command": "/path/to/safe_handler.py"
+    }
+  ]
+}
+```
+
+**Hook Script Best Practices:**
+```python
+#!/usr/bin/env python3
+"""Safe hook handler with proper input validation."""
+import sys
+import json
+
+def main():
+    # Read input from stdin (JSON format)
+    input_data = json.loads(sys.stdin.read())
+
+    # Validate and process safely
+    tool_name = input_data.get("toolName", "")
+
+    # Return decision as JSON
+    result = {"decision": "allow"}
+    print(json.dumps(result))
+
+if __name__ == "__main__":
+    main()
+```
+
+### ❌ Mistake 15: MCP Server Configuration Errors
+```json
+// Wrong: Command doesn't exist
+{
+  "mcpServers": {
+    "my-server": {
+      "command": "nonexistent-command",  // Will fail!
+      "args": []
+    }
+  }
+}
+
+// Wrong: Secrets in plaintext
+{
+  "mcpServers": {
+    "api-server": {
+      "command": "node",
+      "args": ["server.js"],
+      "env": {
+        "API_KEY": "sk-1234567890abcdef"  // Never do this!
+      }
+    }
+  }
+}
+
+// Correct: Use environment variable reference
+{
+  "mcpServers": {
+    "api-server": {
+      "command": "node",
+      "args": ["server.js"],
+      "env": {
+        "API_KEY": "${API_KEY}"  // Reference from system env
+      }
+    }
+  }
+}
+```
+
+### ❌ Mistake 16: Settings Template Without Instructions
+```markdown
+<!-- Wrong: .local.md without clear instructions -->
+API_KEY=
+DB_HOST=
+SECRET=
+
+<!-- Correct: .local.md with documentation -->
+# Local Configuration Template
+
+Copy this file and fill in your values.
+
+## Required Settings
+
+### API Configuration
+- `API_KEY`: Your API key from https://example.com/api
+  - Example: `sk-xxxxxxxxxxxxxxxxxxxx`
+
+### Database Configuration
+- `DB_HOST`: Database hostname
+  - Example: `localhost` or `db.example.com`
+
+### Security
+- `SECRET`: Application secret (generate with `openssl rand -hex 32`)
+  - ⚠️ Never commit actual secrets!
+
+## Usage
+1. Copy `.local.md.example` to `.local.md`
+2. Fill in your values
+3. `.local.md` is gitignored - your secrets stay local
+```
+
+### ❌ Mistake 17: README Missing Essential Sections
+```markdown
+<!-- Wrong: Minimal README -->
+# My Plugin
+
+A plugin for Claude Code.
+
+<!-- Correct: Complete README -->
+# My Plugin
+
+A plugin for Claude Code that does X, Y, Z.
+
+## Installation
+
+```bash
+claude plugins:install my-plugin
+```
+
+## Prerequisites
+
+- Claude Code v1.x+
+- Python 3.9+ (for scripts)
+- Required packages: `pip install pdfplumber`
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `/my-plugin:command1` | Does X |
+| `/my-plugin:command2` | Does Y |
+
+## Skills
+
+- **skill-name**: Description of what this skill provides
+
+## Agents
+
+- **agent-name**: When to use this agent
+
+## Usage Examples
+
+### Example 1: Basic Usage
+```
+/my-plugin:command1 input.pdf
+```
+
+### Example 2: Advanced Usage
+```
+User: Process my PDF and extract tables
+Claude: [Uses pdf-processor skill automatically]
+```
+
+## Configuration
+
+See [.local.md.example](.local.md.example) for configuration options.
+
+## Troubleshooting
+
+### Issue: Command not found
+Solution: Restart Claude Code after installation
+
+### Issue: Script fails
+Solution: Install required packages: `pip install -r requirements.txt`
+```
 
 ## Important Notes
 
