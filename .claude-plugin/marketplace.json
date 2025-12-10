@@ -25,7 +25,8 @@
         "./commands/skill-new",
         "./commands/skillization",
         "./commands/skill-cover",
-        "./commands/command-maker"
+        "./commands/command-maker",
+        "./commands/deploy-checker"
       ],
       "agents": [
         "./agents/skill-architect.md",
