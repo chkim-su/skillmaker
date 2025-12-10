@@ -119,6 +119,40 @@ Skill: api-generator/
        └── references/patterns.md
 ```
 
+#### → Expert Domain Skill (CRITICAL)
+**Convert to expert skill when**:
+- ⚠️ Complex file format manipulation (OOXML, PDF internals, binary formats)
+- ⚠️ Undocumented APIs or library quirks require extensive workarounds
+- ⚠️ Without documentation, Claude wastes tokens on trial-and-error
+- ⚠️ Experience-based knowledge that's hard to rediscover
+
+**Example conversion**:
+```
+Existing: PPTX manipulation code with workarounds
+↓
+Skill: pptx-builder/
+       ├── SKILL.md                      # Core workflow + navigation
+       ├── scripts/
+       │   ├── create_slide.py           # Tested, working scripts
+       │   ├── add_table.py              # With XML workarounds
+       │   └── validation/
+       │       └── validate_pptx.py      # Validation tools
+       ├── references/
+       │   ├── ooxml-structure.md        # Internal format docs
+       │   ├── troubleshooting.md        # Known issues + fixes
+       │   ├── library-limitations.md    # What doesn't work
+       │   └── edge-cases.md             # Special scenarios
+       └── assets/
+           ├── templates/                # Working templates
+           └── examples/                 # Example outputs
+```
+
+**Why Expert conversion is critical**:
+```
+Without skill: Claude tries → fails → searches → tries → may fail again
+With skill: Claude reads docs → uses tested script → works first time
+```
+
 ### Phase 4: Extract Components
 
 #### For Scripts (Tool/Hybrid):
@@ -199,14 +233,23 @@ Ready to create this skill?
 
 1. **Initialize structure**:
 ```bash
+# For knowledge/hybrid/tool
 python ${CLAUDE_PLUGIN_ROOT}/scripts/init_skill.py {skill-name} --type {type} --path .claude/skills
+
+# For expert (creates comprehensive structure)
+python ${CLAUDE_PLUGIN_ROOT}/scripts/init_skill.py {skill-name} --type expert --path .claude/skills
 ```
 
 2. **For scripts**: Extract and adapt from source code
 3. **For references**: Document patterns and link to source
 4. **Update SKILL.md**: Include workflow and when to use
 
-5. **Validate**:
+5. **For expert skills** (additional requirements):
+   - Fill ALL reference files (internal-structure.md, troubleshooting.md, library-limitations.md, edge-cases.md)
+   - Create validation scripts in scripts/validation/
+   - Add working templates and examples in assets/
+
+6. **Validate**:
 ```bash
 python ${CLAUDE_PLUGIN_ROOT}/scripts/validate_skill.py .claude/skills/{skill-name}
 ```

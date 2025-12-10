@@ -165,6 +165,17 @@ python ${CLAUDE_PLUGIN_ROOT}/scripts/init_skill.py {skill-name} --type hybrid --
 python ${CLAUDE_PLUGIN_ROOT}/scripts/init_skill.py {skill-name} --type tool --path .claude/skills
 ```
 
+#### For Expert Domain Skills:
+```bash
+python ${CLAUDE_PLUGIN_ROOT}/scripts/init_skill.py {skill-name} --type expert --path .claude/skills
+```
+
+**Note**: Expert skills require comprehensive documentation. After initialization:
+1. Fill ALL reference files (internal-structure.md, troubleshooting.md, library-limitations.md, edge-cases.md)
+2. Create tested scripts for ALL operations
+3. Add validation scripts in scripts/validation/
+4. Include working templates and examples in assets/
+
 ### Phase 5: Present Design
 
 Present the complete design to user:

@@ -88,6 +88,15 @@ For each skill in `skills/*/`:
 - [ ] Referenced files exist (scripts/, references/, assets/)
 - [ ] If `references/` linked, files exist
 
+**Expert Skill Detection** (CRITICAL):
+If skill has `scripts/validation/` OR 4+ reference files → Treat as expert skill:
+- [ ] `references/` contains format/structure docs
+- [ ] `references/troubleshooting.md` exists
+- [ ] `references/` contains library limitation docs
+- [ ] `scripts/validation/` has validation scripts
+- [ ] `assets/templates/` or `assets/examples/` present
+- [ ] Reference files have actual content (not just TODOs)
+
 #### Check 6: Script Files
 
 For each script in `scripts/*.py` or `scripts/*.sh`:
@@ -290,6 +299,131 @@ Found 3 auto-fixable issues:
 Auto-fix these? (y/n)
 ```
 
+## Common Mistakes (from Experience)
+
+### ❌ Mistake 1: Skills Only Create MD Files
+```
+# Wrong: Skill with no scripts for file manipulation
+pdf-processor/
+├── SKILL.md              # Just documentation
+└── references/
+    └── usage.md
+
+# Correct: Tool skill with actual scripts
+pdf-processor/
+├── SKILL.md
+├── scripts/
+│   ├── extract_text.py   # Working, tested script
+│   └── rotate_page.py
+└── references/
+    └── troubleshooting.md
+```
+
+### ❌ Mistake 2: Expert Skills Without Comprehensive Docs
+```
+# Wrong: Complex format skill with minimal docs
+pptx-builder/
+├── SKILL.md
+└── scripts/
+    └── create.py         # Script, but no workaround docs
+
+# Correct: Expert skill with full documentation
+pptx-builder/
+├── SKILL.md
+├── scripts/
+│   ├── create_slide.py
+│   └── validation/
+│       └── validate_pptx.py
+├── references/
+│   ├── ooxml-structure.md        # Internal format docs
+│   ├── troubleshooting.md        # Known issues
+│   ├── library-limitations.md    # What doesn't work
+│   └── edge-cases.md             # Gotchas
+└── assets/
+    ├── templates/
+    └── examples/
+```
+
+### ❌ Mistake 3: TODO in Production Descriptions
+```yaml
+# Wrong
+---
+description: TODO: Add description
+---
+
+# Correct
+---
+description: |
+  Create PowerPoint presentations programmatically.
+  Supports: slides, tables, charts. Handles OOXML complexities.
+  Trigger phrases: "create PowerPoint", "make slides", "add table"
+---
+```
+
+### ❌ Mistake 4: Broken Cross-References
+```markdown
+# Wrong: References non-existent file
+See [references/advanced.md](references/advanced.md) for details.
+# But references/advanced.md doesn't exist!
+
+# Correct: Only reference existing files
+See [references/patterns.md](references/patterns.md) for details.
+# And references/patterns.md exists with actual content
+```
+
+### ❌ Mistake 5: Scripts Without Docstrings
+```python
+# Wrong
+def main():
+    # No usage info, no help
+    pass
+
+# Correct
+#!/usr/bin/env python3
+"""
+Extract text from PDF files.
+
+Usage:
+    python extract_text.py <input.pdf> <output.txt>
+
+Examples:
+    python extract_text.py report.pdf report.txt
+"""
+import argparse
+# ... proper implementation
+```
+
+### ❌ Mistake 6: Agent Skills Reference Doesn't Exist
+```yaml
+# Wrong: skill doesn't exist
+---
+name: my-agent
+skills: non-existent-skill
+---
+
+# Correct: skill exists in skills/ directory
+---
+name: my-agent
+skills: skill-design
+---
+```
+
+### ❌ Mistake 7: Missing Skill Type Classification
+```
+# Wrong: No clear structure, unclear purpose
+ambiguous-skill/
+├── SKILL.md
+├── scripts/              # Has scripts...
+└── references/           # Has references...
+# But no clear type, inconsistent structure
+
+# Correct: Clear type with appropriate structure
+# Knowledge skill: SKILL.md + references/
+# Tool skill: SKILL.md + scripts/
+# Hybrid skill: SKILL.md + scripts/ + references/
+# Expert skill: SKILL.md + scripts/ + scripts/validation/ + references/ (4+ files) + assets/
+```
+
 ## Important Notes
 
 - Run from plugin root directory
@@ -297,3 +431,5 @@ Auto-fix these? (y/n)
 - Report line numbers for errors when possible
 - Distinguish errors (blocking) from warnings (advisable)
 - Provide actionable fix suggestions
+- **Detect skill type** and validate accordingly
+- **Expert skills** require comprehensive documentation - flag if incomplete
