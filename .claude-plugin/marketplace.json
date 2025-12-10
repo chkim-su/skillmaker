@@ -22,12 +22,12 @@
         "./skills/orchestration-patterns"
       ],
       "commands": [
-        "./commands/wizard",
-        "./commands/skill-new",
-        "./commands/skillization",
-        "./commands/skill-cover",
-        "./commands/command-maker",
-        "./commands/deploy-checker"
+        "./commands/wizard.md",
+        "./commands/skill-new.md",
+        "./commands/skillization.md",
+        "./commands/skill-cover.md",
+        "./commands/command-maker.md",
+        "./commands/deploy-checker.md"
       ],
       "agents": [
         "./agents/skill-architect.md",

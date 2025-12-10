@@ -264,6 +264,22 @@ def fix_make_executable(script_path: Path):
     os.chmod(script_path, os.stat(script_path).st_mode | 0o111)
 
 
+def fix_path_format(marketplace_path: Path, item_type: str, old_path: str, new_path: str):
+    """Fix a path format in marketplace.json (e.g., add/remove .md extension)."""
+    data = json.loads(marketplace_path.read_text())
+    plugins = data.get("plugins", [data])
+
+    for plugin in plugins:
+        items = plugin.get(item_type, [])
+        for i, item in enumerate(items):
+            # Normalize for comparison
+            if item.rstrip('/') == old_path.rstrip('/') or item == old_path:
+                items[i] = new_path
+                break
+
+    marketplace_path.write_text(json.dumps(data, indent=2) + "\n")
+
+
 # ============================================================================
 # VALIDATION FUNCTIONS
 # ============================================================================
@@ -283,12 +299,24 @@ def validate_registration(plugin_root: Path, plugin_data: dict, marketplace_path
         registered_set = set()
 
         for cmd in registered_commands:
-            name = cmd.replace("./commands/", "").replace(".md", "")
+            # CRITICAL: Validate path format - commands MUST end with .md
+            if not cmd.endswith(".md"):
+                correct_path = cmd + ".md"
+                result.add_error(
+                    f'Command path "{cmd}" missing .md extension (plugin system will fail to load)',
+                    Fix(f'Fix path to "{correct_path}"', fix_path_format, marketplace_path, "commands", cmd, correct_path)
+                )
+                # Still check if the file would exist with correct extension
+                name = cmd.replace("./commands/", "").replace("commands/", "")
+            else:
+                name = cmd.replace("./commands/", "").replace("commands/", "").replace(".md", "")
+
             registered_set.add(name)
 
             cmd_file = commands_dir / f"{name}.md"
             if cmd_file.exists():
-                result.add_pass(f"commands/{name}.md registered and exists")
+                if cmd.endswith(".md"):
+                    result.add_pass(f"commands/{name}.md registered and exists")
             else:
                 result.add_error(
                     f"commands/{name}.md NOT FOUND (registered in marketplace.json)",
@@ -299,8 +327,8 @@ def validate_registration(plugin_root: Path, plugin_data: dict, marketplace_path
             if actual not in registered_set:
                 result.add_error(
                     f"commands/{actual}.md exists but NOT REGISTERED in marketplace.json",
-                    Fix(f"Add commands/{actual} to marketplace.json",
-                        fix_add_to_marketplace, marketplace_path, "commands", f"commands/{actual}")
+                    Fix(f"Add commands/{actual}.md to marketplace.json",
+                        fix_add_to_marketplace, marketplace_path, "commands", f"commands/{actual}.md")
                 )
 
     # Validate agents
@@ -310,12 +338,23 @@ def validate_registration(plugin_root: Path, plugin_data: dict, marketplace_path
         registered_set = set()
 
         for agent in registered_agents:
-            name = agent.replace("./agents/", "").replace(".md", "")
+            # CRITICAL: Validate path format - agents MUST end with .md
+            if not agent.endswith(".md"):
+                correct_path = agent + ".md"
+                result.add_error(
+                    f'Agent path "{agent}" missing .md extension (plugin system will fail to load)',
+                    Fix(f'Fix path to "{correct_path}"', fix_path_format, marketplace_path, "agents", agent, correct_path)
+                )
+                name = agent.replace("./agents/", "").replace("agents/", "")
+            else:
+                name = agent.replace("./agents/", "").replace("agents/", "").replace(".md", "")
+
             registered_set.add(name)
 
             agent_file = agents_dir / f"{name}.md"
             if agent_file.exists():
-                result.add_pass(f"agents/{name}.md registered and exists")
+                if agent.endswith(".md"):
+                    result.add_pass(f"agents/{name}.md registered and exists")
             else:
                 result.add_error(
                     f"agents/{name}.md NOT FOUND",
@@ -337,12 +376,23 @@ def validate_registration(plugin_root: Path, plugin_data: dict, marketplace_path
         registered_set = set()
 
         for skill in registered_skills:
-            name = skill.replace("./skills/", "").rstrip("/")
+            # CRITICAL: Validate path format - skills are directories, must NOT end with .md
+            if skill.endswith(".md"):
+                correct_path = skill.replace(".md", "").rstrip("/")
+                result.add_error(
+                    f'Skill path "{skill}" has .md extension but skills are directories',
+                    Fix(f'Fix path to "{correct_path}"', fix_path_format, marketplace_path, "skills", skill, correct_path)
+                )
+                name = skill.replace("./skills/", "").replace("skills/", "").replace(".md", "").rstrip("/")
+            else:
+                name = skill.replace("./skills/", "").replace("skills/", "").rstrip("/")
+
             registered_set.add(name)
 
             skill_md = skills_dir / name / "SKILL.md"
             if skill_md.exists():
-                result.add_pass(f"skills/{name}/SKILL.md registered and exists")
+                if not skill.endswith(".md"):
+                    result.add_pass(f"skills/{name}/SKILL.md registered and exists")
             elif (skills_dir / name).exists():
                 result.add_error(
                     f"skills/{name}/ exists but missing SKILL.md",
