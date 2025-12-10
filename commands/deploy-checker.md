@@ -48,6 +48,12 @@ Verify:
 - [ ] `description` field exists and is meaningful (not TODO)
 - [ ] `version` field exists (if applicable)
 - [ ] No JSON syntax errors
+- [ ] `source` path format is correct (see Source Path Validation below)
+
+**Source Path Validation** (CRITICAL):
+- [ ] Local plugins: `source` must start with `./` (e.g., `"./plugins/my-plugin"`)
+- [ ] GitHub plugins: must use object format `{"source": "github", "repo": "user/repo"}`
+- [ ] No bare paths like `"source": "my-plugin"` (will cause "must start with ./" error)
 
 #### Check 2: Required Directories
 
@@ -422,6 +428,57 @@ ambiguous-skill/
 # Tool skill: SKILL.md + scripts/
 # Hybrid skill: SKILL.md + scripts/ + references/
 # Expert skill: SKILL.md + scripts/ + scripts/validation/ + references/ (4+ files) + assets/
+```
+
+### ❌ Mistake 8: Invalid Plugin Source Path
+```json
+// Wrong: Bare path (causes "must start with ./" error)
+{
+  "plugins": [
+    {"source": "my-plugin"}
+  ]
+}
+
+// Wrong: Missing ./ prefix for local path
+{
+  "plugins": [
+    {"source": "plugins/skillmaker"}
+  ]
+}
+
+// Correct: Local plugin with ./ prefix
+{
+  "plugins": [
+    {"source": "./plugins/skillmaker"}
+  ]
+}
+
+// Correct: GitHub plugin with object format
+{
+  "extraKnownMarketplaces": {
+    "skillmaker": {
+      "source": {
+        "source": "github",
+        "repo": "chkim-su/skillmaker"
+      }
+    }
+  }
+}
+```
+
+### ❌ Mistake 9: Marketplace JSON Path Mismatch
+```json
+// Wrong: marketplace.json source doesn't match actual location
+// File at: ./plugins/skillmaker/
+// But marketplace.json says:
+{
+  "source": "./skillmaker"  // Path doesn't exist!
+}
+
+// Correct: Path matches actual plugin location
+{
+  "source": "./plugins/skillmaker"
+}
 ```
 
 ## Important Notes
