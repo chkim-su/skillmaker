@@ -55,6 +55,12 @@ Verify:
 - [ ] GitHub plugins: must use object format `{"source": "github", "repo": "user/repo"}`
 - [ ] No bare paths like `"source": "my-plugin"` (will cause "must start with ./" error)
 
+**Explicit Registration Validation** (if marketplace.json has commands/skills/agents arrays):
+- [ ] All files in `commands/` are listed in `commands` array
+- [ ] All files in `agents/` are listed in `agents` array
+- [ ] All directories in `skills/` are listed in `skills` array
+- [ ] No entries in arrays point to non-existent files
+
 #### Check 2: Required Directories
 
 ```bash
@@ -528,6 +534,37 @@ my-marketplace/
 - source 경로가 실제 플러그인 파일 위치와 일치하도록 수정
 - 또는 플러그인 파일을 source 경로로 이동
 ```
+
+### ❌ Mistake 12: New Commands/Skills Not Registered in marketplace.json
+```json
+// 문제: 파일은 만들었지만 marketplace.json에 등록 안 함
+
+// commands/deploy-checker.md 만들었는데 안 보임?
+// marketplace.json의 commands 배열 확인!
+
+// Wrong: deploy-checker 누락
+{
+  "commands": [
+    "./commands/skill-new",
+    "./commands/skillization"
+    // deploy-checker가 없음!
+  ]
+}
+
+// Correct: 모든 커맨드 등록
+{
+  "commands": [
+    "./commands/skill-new",
+    "./commands/skillization",
+    "./commands/deploy-checker"  // 추가됨
+  ]
+}
+```
+
+**체크리스트:**
+- [ ] 새 커맨드 생성 → marketplace.json의 `commands` 배열에 추가
+- [ ] 새 에이전트 생성 → marketplace.json의 `agents` 배열에 추가
+- [ ] 새 스킬 생성 → marketplace.json의 `skills` 배열에 추가
 
 ## Important Notes
 
