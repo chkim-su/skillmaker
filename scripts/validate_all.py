@@ -26,6 +26,10 @@ import os
 from pathlib import Path
 from typing import Dict, List, Tuple, Any, Optional
 
+# Fix Windows console encoding for emoji/unicode output
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+
 try:
     import yaml
 except ImportError:
@@ -118,7 +122,7 @@ def parse_frontmatter(content: str) -> Tuple[dict | None, str | None]:
 
 def fix_add_to_marketplace(marketplace_path: Path, item_type: str, item_path: str):
     """Add an item to marketplace.json."""
-    data = json.loads(marketplace_path.read_text())
+    data = json.loads(marketplace_path.read_text(encoding='utf-8'))
     plugins = data.get("plugins", [data])
 
     for plugin in plugins:
@@ -138,7 +142,7 @@ def fix_add_to_marketplace(marketplace_path: Path, item_type: str, item_path: st
 
 def fix_remove_from_marketplace(marketplace_path: Path, item_type: str, item_path: str):
     """Remove an item from marketplace.json."""
-    data = json.loads(marketplace_path.read_text())
+    data = json.loads(marketplace_path.read_text(encoding='utf-8'))
     plugins = data.get("plugins", [data])
 
     for plugin in plugins:
@@ -213,7 +217,7 @@ TODO: Add usage instructions
 
 def fix_add_frontmatter(file_path: Path, frontmatter: dict):
     """Add or replace frontmatter in a markdown file."""
-    content = file_path.read_text()
+    content = file_path.read_text(encoding='utf-8')
 
     # Build YAML frontmatter
     fm_lines = ["---"]
@@ -242,7 +246,7 @@ def fix_add_frontmatter(file_path: Path, frontmatter: dict):
 
 def fix_source_path(marketplace_path: Path, plugin_idx: int, new_source: str):
     """Fix source path in marketplace.json."""
-    data = json.loads(marketplace_path.read_text())
+    data = json.loads(marketplace_path.read_text(encoding='utf-8'))
     plugins = data.get("plugins", [data])
 
     if plugin_idx < len(plugins):
@@ -253,7 +257,7 @@ def fix_source_path(marketplace_path: Path, plugin_idx: int, new_source: str):
 
 def fix_add_shebang(script_path: Path):
     """Add shebang to Python script."""
-    content = script_path.read_text()
+    content = script_path.read_text(encoding='utf-8')
     if not content.startswith('#!'):
         content = '#!/usr/bin/env python3\n' + content
         script_path.write_text(content)
@@ -266,7 +270,7 @@ def fix_make_executable(script_path: Path):
 
 def fix_path_format(marketplace_path: Path, item_type: str, old_path: str, new_path: str):
     """Fix a path format in marketplace.json (e.g., add/remove .md extension)."""
-    data = json.loads(marketplace_path.read_text())
+    data = json.loads(marketplace_path.read_text(encoding='utf-8'))
     plugins = data.get("plugins", [data])
 
     for plugin in plugins:
@@ -425,7 +429,7 @@ def validate_frontmatter_fields(plugin_root: Path) -> ValidationResult:
     commands_dir = plugin_root / "commands"
     if commands_dir.exists():
         for cmd_file in commands_dir.glob("*.md"):
-            content = cmd_file.read_text()
+            content = cmd_file.read_text(encoding='utf-8')
             fm, error = parse_frontmatter(content)
 
             if error or not fm:
@@ -455,7 +459,7 @@ def validate_frontmatter_fields(plugin_root: Path) -> ValidationResult:
     agents_dir = plugin_root / "agents"
     if agents_dir.exists():
         for agent_file in agents_dir.glob("*.md"):
-            content = agent_file.read_text()
+            content = agent_file.read_text(encoding='utf-8')
             fm, error = parse_frontmatter(content)
 
             if error or not fm:
@@ -499,7 +503,7 @@ def validate_frontmatter_fields(plugin_root: Path) -> ValidationResult:
             if not skill_md.exists():
                 continue
 
-            content = skill_md.read_text()
+            content = skill_md.read_text(encoding='utf-8')
             fm, error = parse_frontmatter(content)
 
             if error or not fm:
@@ -568,7 +572,7 @@ def validate_scripts(plugin_root: Path) -> ValidationResult:
         return result
 
     for script in scripts_dir.glob("*.py"):
-        content = script.read_text()
+        content = script.read_text(encoding='utf-8')
 
         # Check shebang
         if not content.startswith('#!'):
@@ -605,7 +609,7 @@ def validate_settings_json() -> ValidationResult:
             continue
 
         try:
-            settings = json.loads(settings_path.read_text())
+            settings = json.loads(settings_path.read_text(encoding='utf-8'))
         except (json.JSONDecodeError, IOError):
             continue
 
@@ -674,7 +678,7 @@ def main():
 
     # Parse marketplace.json
     try:
-        data = json.loads(marketplace_path.read_text())
+        data = json.loads(marketplace_path.read_text(encoding='utf-8'))
     except json.JSONDecodeError as e:
         if json_output:
             print(json.dumps({"status": "error", "message": f"Invalid JSON: {e}"}))
