@@ -384,7 +384,9 @@ def validate_registration(plugin_root: Path, plugin_data: dict, marketplace_path
             if skill.endswith(".md"):
                 correct_path = skill.replace(".md", "").rstrip("/")
                 result.add_error(
-                    f'Skill path "{skill}" has .md extension but skills are directories',
+                    f'Skill path "{skill}" has .md extension but skills must be directories. '
+                    f'Skills are folders containing SKILL.md, not .md files themselves. '
+                    f'Correct format: "{correct_path}" (the directory, not the file)',
                     Fix(f'Fix path to "{correct_path}"', fix_path_format, marketplace_path, "skills", skill, correct_path)
                 )
                 name = skill.replace("./skills/", "").replace("skills/", "").replace(".md", "").rstrip("/")
@@ -485,7 +487,12 @@ def validate_frontmatter_fields(plugin_root: Path) -> ValidationResult:
                 needs_fix = True
                 result.add_error(f"{agent_file.name}: Missing 'description' field")
             if not fm.get("tools"):
-                result.add_warning(f"{agent_file.name}: Missing 'tools' field")
+                fm["tools"] = ["Read", "Grep", "Glob"]
+                needs_fix = True
+                result.add_error(
+                    f'{agent_file.name}: Missing required "tools" field. '
+                    f'Example: tools: ["Read", "Write", "Bash", "Grep", "Glob"]'
+                )
 
             if needs_fix:
                 result.fixes.append(Fix(f"Fix frontmatter in {agent_file.name}", fix_add_frontmatter, agent_file, fm))
@@ -745,23 +752,41 @@ def validate_marketplace_schema(data: dict, marketplace_path: Path) -> Validatio
 
             elif isinstance(source, dict):
                 # Object source - must have valid structure
+                # CRITICAL: The key must be "source", NOT "type"
                 source_type = source.get("source")
 
-                if source_type not in ALLOWED_SOURCE_TYPES:
+                # Check for common mistake: using "type" instead of "source"
+                if "type" in source and "source" not in source:
                     result.add_error(
-                        f"plugins[{i}].source.source must be one of: {', '.join(ALLOWED_SOURCE_TYPES)}. "
-                        f"Got: '{source_type}'"
+                        f'plugins[{i}].source uses "type" key but must use "source" key. '
+                        f'Correct format: {{"source": "github", "repo": "owner/repo"}} '
+                        f'NOT {{"type": "github", ...}}'
+                    )
+                elif source_type not in ALLOWED_SOURCE_TYPES:
+                    result.add_error(
+                        f'plugins[{i}].source.source must be one of: {", ".join(ALLOWED_SOURCE_TYPES)}. '
+                        f'Got: {repr(source_type)}. '
+                        f'Correct format: {{"source": "github", "repo": "owner/repo"}}'
                     )
                 elif source_type == "github":
                     if "repo" not in source:
-                        result.add_error(f"plugins[{i}].source with type 'github' requires 'repo' field")
+                        result.add_error(
+                            f'plugins[{i}].source: GitHub source requires "repo" field. '
+                            f'Correct format: {{"source": "github", "repo": "owner/repo"}}'
+                        )
                     elif not isinstance(source["repo"], str) or "/" not in source["repo"]:
-                        result.add_error(f"plugins[{i}].source.repo must be in format 'owner/repo'")
+                        result.add_error(
+                            f'plugins[{i}].source.repo must be in format "owner/repo". '
+                            f'Got: {repr(source.get("repo"))}'
+                        )
                     else:
                         result.add_pass(f"plugins[{i}].source GitHub format is valid")
                 elif source_type == "url":
                     if "url" not in source:
-                        result.add_error(f"plugins[{i}].source with type 'url' requires 'url' field")
+                        result.add_error(
+                            f'plugins[{i}].source: URL source requires "url" field. '
+                            f'Correct format: {{"source": "url", "url": "https://..."}}'
+                        )
                     elif not isinstance(source["url"], str) or not source["url"].startswith(("http://", "https://")):
                         result.add_error(f"plugins[{i}].source.url must be a valid HTTP(S) URL")
                     else:
@@ -905,6 +930,221 @@ def apply_fixes(fixes: List[Fix], dry_run: bool = False) -> Tuple[int, int]:
     return success, fail
 
 
+# =============================================================================
+# ENHANCED VALIDATION: Claude Code CLI + Edge Case Testing
+# =============================================================================
+
+def run_claude_cli_validation(plugin_root: Path) -> Tuple[bool, str]:
+    """
+    Run Claude Code CLI validation as secondary check.
+
+    Returns (success, output_message)
+    """
+    import subprocess
+
+    try:
+        result = subprocess.run(
+            ["claude", "plugin", "validate", str(plugin_root)],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        output = result.stdout + result.stderr
+        success = result.returncode == 0 or "passed" in output.lower()
+
+        return success, output.strip()
+    except FileNotFoundError:
+        return True, "Claude CLI not found (skipped)"
+    except subprocess.TimeoutExpired:
+        return False, "Claude CLI validation timed out"
+    except Exception as e:
+        return True, f"Claude CLI validation skipped: {e}"
+
+
+def test_source_edge_cases(marketplace_path: Path) -> ValidationResult:
+    """
+    Test marketplace.json for common source format mistakes.
+
+    This catches errors that would only appear during 'marketplace add'.
+    """
+    result = ValidationResult()
+
+    if not marketplace_path.exists():
+        return result
+
+    try:
+        with open(marketplace_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except:
+        return result
+
+    plugins = data.get("plugins", [])
+
+    for i, plugin in enumerate(plugins):
+        source = plugin.get("source")
+
+        # Edge case 1: source is None
+        if source is None:
+            result.add_error(
+                f'plugins[{i}].source is null/missing. '
+                f'Must be a path like "./" or object like {{"source": "github", "repo": "owner/repo"}}'
+            )
+            continue
+
+        # Edge case 2: source is empty string
+        if source == "":
+            result.add_error(
+                f'plugins[{i}].source is empty string. '
+                f'Must be a path like "./" or object like {{"source": "github", "repo": "owner/repo"}}'
+            )
+            continue
+
+        # Edge case 3: source is empty object
+        if isinstance(source, dict) and not source:
+            result.add_error(
+                f'plugins[{i}].source is empty object {{}}. '
+                f'Must be {{"source": "github", "repo": "owner/repo"}} or {{"source": "url", "url": "https://..."}}'
+            )
+            continue
+
+        # Edge case 4: source object uses wrong keys
+        if isinstance(source, dict):
+            # Check for common mistakes
+            if "type" in source and "source" not in source:
+                result.add_error(
+                    f'plugins[{i}].source uses "type" key instead of "source" key. '
+                    f'WRONG: {{"type": "github", ...}} '
+                    f'CORRECT: {{"source": "github", "repo": "owner/repo"}}'
+                )
+            elif "url" in source and "source" not in source:
+                result.add_error(
+                    f'plugins[{i}].source has "url" but missing "source" key. '
+                    f'CORRECT: {{"source": "url", "url": "https://..."}}'
+                )
+            elif "repo" in source and "source" not in source:
+                result.add_error(
+                    f'plugins[{i}].source has "repo" but missing "source" key. '
+                    f'CORRECT: {{"source": "github", "repo": "owner/repo"}}'
+                )
+
+        # Edge case 5: path source with problematic format
+        if isinstance(source, str):
+            if source == ".":
+                result.add_error(
+                    f'plugins[{i}].source is "." but must start with "./". '
+                    f'Use "./" instead of "."'
+                )
+
+    if not result.errors:
+        result.add_pass("Source format edge cases: all passed")
+
+    return result
+
+
+def validate_against_official_patterns(plugin_root: Path) -> ValidationResult:
+    """
+    Validate against patterns observed in official Claude Code plugins.
+    """
+    result = ValidationResult()
+
+    marketplace_path = plugin_root / ".claude-plugin" / "marketplace.json"
+    if not marketplace_path.exists():
+        return result
+
+    try:
+        with open(marketplace_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except:
+        return result
+
+    # Pattern 1: Official plugins use metadata.description
+    if "metadata" not in data:
+        result.add_warning(
+            'Missing "metadata" object. Official plugins use: '
+            '"metadata": {"description": "...", "version": "..."}'
+        )
+    elif "description" not in data.get("metadata", {}):
+        result.add_warning(
+            'Missing "metadata.description". Claude Code shows this in plugin listings.'
+        )
+    else:
+        result.add_pass("metadata.description present")
+
+    # Pattern 2: Check owner.name is present
+    owner = data.get("owner", {})
+    if not owner.get("name"):
+        result.add_error(
+            'Missing "owner.name". This is required by Claude Code.'
+        )
+    else:
+        result.add_pass("owner.name present")
+
+    # Pattern 3: Validate plugin component paths
+    for i, plugin in enumerate(data.get("plugins", [])):
+        # Skills should be directories (no .md)
+        for skill in plugin.get("skills", []):
+            if skill.endswith(".md"):
+                result.add_error(
+                    f'plugins[{i}].skills contains "{skill}" with .md extension. '
+                    f'Skills are directories, not files. Remove the .md extension.'
+                )
+
+        # Commands should be .md files
+        for cmd in plugin.get("commands", []):
+            if not cmd.endswith(".md"):
+                result.add_error(
+                    f'plugins[{i}].commands contains "{cmd}" without .md extension. '
+                    f'Commands must be .md files.'
+                )
+
+        # Agents should be .md files
+        for agent in plugin.get("agents", []):
+            if not agent.endswith(".md"):
+                result.add_error(
+                    f'plugins[{i}].agents contains "{agent}" without .md extension. '
+                    f'Agents must be .md files.'
+                )
+
+    return result
+
+
+def run_comprehensive_validation(plugin_root: Path, json_output: bool = False) -> ValidationResult:
+    """
+    Run comprehensive validation including:
+    1. Standard validate_all checks
+    2. Edge case testing
+    3. Official pattern matching
+    4. Claude CLI double-validation (if available)
+    """
+    result = ValidationResult()
+
+    marketplace_path = plugin_root / ".claude-plugin" / "marketplace.json"
+
+    # Run edge case tests
+    edge_result = test_source_edge_cases(marketplace_path)
+    result.merge(edge_result)
+
+    # Run official pattern validation
+    pattern_result = validate_against_official_patterns(plugin_root)
+    result.merge(pattern_result)
+
+    # Run Claude CLI validation (non-blocking, informational)
+    if not json_output:
+        cli_success, cli_output = run_claude_cli_validation(plugin_root)
+        if "not found" not in cli_output.lower() and "skipped" not in cli_output.lower():
+            if cli_success:
+                result.add_pass(f"Claude CLI validation: passed")
+            else:
+                # Extract error from CLI output
+                if "error" in cli_output.lower():
+                    result.add_error(f"Claude CLI validation failed: {cli_output[:200]}")
+                else:
+                    result.add_warning(f"Claude CLI validation warning: {cli_output[:200]}")
+
+    return result
+
+
 def main():
     # Parse arguments
     json_output = "--json" in sys.argv
@@ -962,6 +1202,9 @@ def main():
         total_result.merge(validate_registration(effective_root, plugin, marketplace_path))
         total_result.merge(validate_frontmatter_fields(effective_root))
         total_result.merge(validate_scripts(effective_root))
+
+    # Run comprehensive validation (edge cases, official patterns, CLI double-check)
+    total_result.merge(run_comprehensive_validation(plugin_root, json_output))
 
     # Output results
     if json_output:

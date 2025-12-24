@@ -209,6 +209,22 @@ AskUserQuestion:
 **⚠️ MANDATORY: You MUST execute the actual validation script. NO exceptions.**
 **DO NOT perform "visual analysis", "manual inspection", or "eye-check". ALWAYS run the script.**
 
+## Validation Checks Performed
+
+The validation script performs **comprehensive multi-layer checking**:
+
+| Layer | Check | Description |
+|-------|-------|-------------|
+| Schema | Required fields | `name`, `owner`, `plugins` exist |
+| Schema | Source format | `{"source": "github", ...}` NOT `{"type": "github", ...}` |
+| Schema | Path formats | Skills=directories, Commands/Agents=.md files |
+| Edge Case | Null/empty source | Catches `source: null`, `source: ""`, `source: {}` |
+| Edge Case | Wrong key names | Detects `"type"` instead of `"source"` |
+| Pattern | Official patterns | Validates against official Claude plugin structure |
+| CLI | Double-validation | Runs `claude plugin validate` if available |
+
+## Execution Steps
+
 1. **ALWAYS execute this command first** (NO SKIPPING):
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
@@ -227,6 +243,15 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
 4. **If status="warn" (warnings only)**: Show warnings, explain they won't block deployment
 
 5. **If status="pass"**: Show "✅ 검증 통과 - 배포 준비 완료"
+
+## Common Error Solutions
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `uses "type" key but must use "source"` | Wrong JSON key | Change `{"type": "github"}` → `{"source": "github"}` |
+| `skills has .md extension` | Skills are directories | Remove `.md` from skill paths |
+| `commands missing .md` | Commands are files | Add `.md` to command paths |
+| `source is empty object` | Missing required fields | Add `{"source": "github", "repo": "..."}` |
 
 **FORBIDDEN BEHAVIORS:**
 - ❌ Reading files manually and reporting "looks good"
@@ -268,6 +293,48 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/register_local.py --path $(pwd)
 
 Deploy to marketplace after testing.
 
+## Pre-Deployment Checklist
+
+**⚠️ CRITICAL FORMAT REQUIREMENTS - Review before deployment:**
+
+### 1. GitHub Source Format
+```json
+// ✅ CORRECT
+"source": {"source": "github", "repo": "owner/repo"}
+
+// ❌ WRONG - "type" instead of "source"
+"source": {"type": "github", "repo": "owner/repo"}
+```
+
+### 2. Skills Path Format
+```json
+// ✅ CORRECT - skills are directories
+"skills": ["./skills/my-skill"]
+
+// ❌ WRONG - skills are NOT .md files
+"skills": ["./skills/my-skill.md"]
+```
+
+### 3. Commands/Agents Path Format
+```json
+// ✅ CORRECT - commands and agents ARE .md files
+"commands": ["./commands/my-cmd.md"],
+"agents": ["./agents/my-agent.md"]
+```
+
+### 4. Agent Frontmatter Required Fields
+```yaml
+---
+name: agent-name
+description: What this agent does
+tools: ["Read", "Write", "Bash"]  # ← REQUIRED!
+---
+```
+
+---
+
+## Deployment Steps
+
 1. Check local registration:
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/check_local_registration.py --path $(pwd)
@@ -295,12 +362,20 @@ AskUserQuestion:
 
 4. If "No": Show testing guide, exit
 
-5. Find unregistered items:
+5. **MANDATORY: Run validation before any changes**:
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
+```
+   - **If ANY errors exist → STOP and fix first**
+   - Show user the exact errors and how to fix them
+   - Do NOT proceed with errors
+
+6. Find unregistered items:
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --json | grep "not_registered"
 ```
 
-6. If unregistered items exist:
+7. If unregistered items exist:
 ```yaml
 AskUserQuestion:
   question: "어떤 항목을 마켓플레이스에 등록할까요?"
@@ -309,17 +384,36 @@ AskUserQuestion:
   options: [list of unregistered items]
 ```
 
-7. Register selected items to marketplace.json:
+8. Register selected items to marketplace.json:
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/register_marketplace.py --items {selected}
 ```
 
-8. Run final validation:
+9. Run final validation (MANDATORY):
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
 ```
+   - **MUST pass with no errors before proceeding**
 
-9. Show result:
+10. If GitHub deployment, verify source format:
+```yaml
+AskUserQuestion:
+  question: "GitHub 리포지토리를 사용하나요?"
+  header: "Source"
+  options:
+    - label: "Yes - GitHub 배포"
+      description: "GitHub에 푸시하여 배포"
+    - label: "No - 로컬 경로 유지"
+      description: "./ 형식 유지"
+```
+
+11. If GitHub: Update source in marketplace.json:
+```json
+"source": {"source": "github", "repo": "OWNER/REPO"}
+```
+**WARNING**: Use `"source": "github"`, NOT `"type": "github"`!
+
+12. Show result:
 ```markdown
 ## 마켓플레이스 등록 완료
 
@@ -329,5 +423,6 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
 **배포 방법:**
 1. 변경사항 커밋: `git add . && git commit -m "Add new items"`
 2. GitHub에 푸시: `git push`
-3. 사용자들이 설치 가능: `/plugin install {plugin}@{marketplace}`
+3. Claude Code 검증: `claude plugin validate .`
+4. 사용자들이 설치 가능: `/plugin install {plugin}@{marketplace}`
 ```

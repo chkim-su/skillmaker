@@ -1,11 +1,13 @@
 {
   "name": "skillmaker-marketplace",
-  "description": "Skillmaker: Create perfect skills and subagents that use them with isolated context",
-  "version": "2.0.0",
   "owner": {
     "name": "Chanho KIM"
   },
   "homepage": "https://github.com/chkim-su/skillmaker",
+  "metadata": {
+    "description": "Skillmaker: Create perfect skills and subagents that use them with isolated context",
+    "version": "2.0.0"
+  },
   "plugins": [
     {
       "name": "skillmaker",

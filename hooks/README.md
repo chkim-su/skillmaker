@@ -56,7 +56,9 @@ type %USERPROFILE%\.claude\settings.json
 }
 ```
 
-## Validation Checks
+## Validation Layers
+
+### Layer 1: Schema Validation (BLOCKING)
 
 | Check | Severity | Description |
 |-------|----------|-------------|
@@ -64,11 +66,37 @@ type %USERPROFILE%\.claude\settings.json
 | `plugins` missing | **BLOCK** | marketplace.json requires `plugins` array |
 | `plugins[].name` missing | **BLOCK** | Each plugin needs a name |
 | `plugins[].source` missing | **BLOCK** | Each plugin needs a source |
-| URL in source | **BLOCK** | URLs not allowed; use `{type: "github", repo: "..."}` |
 | Unrecognized fields | **BLOCK** | Only allowed fields permitted |
-| Path format invalid | **BLOCK** | Commands need `.md`, skills are directories |
+
+### Layer 2: Source Format Validation (BLOCKING)
+
+| Check | Severity | Description |
+|-------|----------|-------------|
+| `"type"` instead of `"source"` | **BLOCK** | GitHub format is `{"source": "github"}` NOT `{"type": "github"}` |
+| Empty source (`""`, `{}`, `null`) | **BLOCK** | Source must be valid path or object |
+| Missing `repo` field | **BLOCK** | GitHub source requires `{"source": "github", "repo": "owner/repo"}` |
+| Path not starting with `./` | **BLOCK** | Path sources must start with `./` |
+
+### Layer 3: Path Format Validation (BLOCKING)
+
+| Check | Severity | Description |
+|-------|----------|-------------|
+| Skills with `.md` extension | **BLOCK** | Skills are directories (e.g., `./skills/my-skill`) |
+| Commands without `.md` | **BLOCK** | Commands are files (e.g., `./commands/my-cmd.md`) |
+| Agents without `.md` | **BLOCK** | Agents are files (e.g., `./agents/my-agent.md`) |
 | File not found | **BLOCK** | Registered file doesn't exist |
 | Unregistered file | **BLOCK** | File exists but not in marketplace.json |
+
+### Layer 4: Official Pattern Matching (WARNING)
+
+| Check | Severity | Description |
+|-------|----------|-------------|
+| Missing `metadata.description` | WARN | Claude Code displays this in listings |
+| Missing agent `tools` field | **BLOCK** | Agents require `tools: ["Read", "Write", ...]` |
+
+### Layer 5: CLI Double-Validation (INFORMATIONAL)
+
+If `claude` CLI is available, runs `claude plugin validate` as secondary check.
 
 ## Manual Validation
 
