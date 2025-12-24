@@ -1,20 +1,16 @@
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "skillmaker-marketplace",
+  "description": "Skillmaker: Create perfect skills and subagents that use them with isolated context",
+  "version": "2.0.0",
   "owner": {
-    "name": "Chanho KIM",
-    "email": "chkim@example.com"
+    "name": "Chanho KIM"
   },
-  "metadata": {
-    "description": "Skillmaker: Create perfect skills and subagents that use them with isolated context",
-    "version": "2.0.0",
-    "homepage": "https://github.com/chkim-su/skillmaker"
-  },
+  "homepage": "https://github.com/chkim-su/skillmaker",
   "plugins": [
     {
       "name": "skillmaker",
       "description": "Create perfect skills and subagents that use them explicitly. Solve the context window problem with skill-based architecture.",
-      "source": ".",
+      "source": "./",
       "version": "2.0.0",
       "author": {
         "name": "Chanho KIM"

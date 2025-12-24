@@ -540,144 +540,272 @@ def validate_frontmatter_fields(plugin_root: Path) -> ValidationResult:
     return result
 
 
-def validate_marketplace_schema(data: dict, marketplace_path: Path) -> ValidationResult:
-    """Validate marketplace.json follows the official schema structure."""
-    result = ValidationResult()
-
-    # Required root fields
-    if "name" not in data:
-        result.add_error("marketplace.json missing required field: 'name'")
-    else:
-        name = data["name"]
-        # Check for reserved names
-        reserved_names = [
-            "claude-code-marketplace", "claude-code-plugins", "claude-plugins-official",
-            "anthropic-marketplace", "anthropic-plugins", "agent-skills", "life-sciences"
-        ]
-        if name in reserved_names:
-            result.add_error(f"marketplace name '{name}' is reserved and cannot be used")
-        elif not name.replace("-", "").replace("_", "").isalnum():
-            result.add_warning(f"marketplace name '{name}' should use kebab-case (alphanumeric and hyphens)")
-        else:
-            result.add_pass(f"marketplace name '{name}' is valid")
-
-    if "owner" not in data:
-        result.add_error("marketplace.json missing required field: 'owner'")
-    else:
-        owner = data["owner"]
-        if not isinstance(owner, dict):
-            result.add_error("'owner' must be an object")
-        elif "name" not in owner:
-            result.add_error("'owner' missing required field: 'name'")
-        else:
-            result.add_pass("owner field is valid")
-            if "email" not in owner:
-                result.add_warning("'owner.email' is recommended for contact information")
-
-    if "plugins" not in data:
-        result.add_error("marketplace.json missing required field: 'plugins'")
-    elif not isinstance(data["plugins"], list):
-        result.add_error("'plugins' must be an array")
-    elif len(data["plugins"]) == 0:
-        result.add_warning("'plugins' array is empty - no plugins defined")
-    else:
-        result.add_pass(f"plugins array contains {len(data['plugins'])} plugin(s)")
-
-    # Check for old schema format (description/version at root level)
-    if "description" in data and "metadata" not in data:
-        result.add_warning(
-            "'description' at root level is deprecated. Move to 'metadata.description'",
-            Fix("Move description to metadata", _fix_move_to_metadata, marketplace_path, "description")
-        )
-    if "version" in data and "metadata" not in data:
-        result.add_warning(
-            "'version' at root level is deprecated. Move to 'metadata.version'",
-            Fix("Move version to metadata", _fix_move_to_metadata, marketplace_path, "version")
-        )
-
-    # Validate metadata if present
-    if "metadata" in data:
-        metadata = data["metadata"]
-        if not isinstance(metadata, dict):
-            result.add_error("'metadata' must be an object")
-        else:
-            if "description" in metadata:
-                result.add_pass("metadata.description is set")
-            if "version" in metadata:
-                result.add_pass(f"metadata.version is '{metadata['version']}'")
-
-    # Allowed fields in plugin entries
-    ALLOWED_PLUGIN_FIELDS = {
-        "name", "description", "version", "source", "license", "tags",
-        "commands", "agents", "skills", "hooks", "scripts",
-        "author", "category", "repository", "homepage", "keywords"
-    }
-
-    # Validate each plugin entry
-    for i, plugin in enumerate(data.get("plugins", [])):
-        if "name" not in plugin:
-            result.add_error(f"plugins[{i}] missing required field: 'name'")
-        if "source" not in plugin:
-            result.add_error(f"plugins[{i}] missing required field: 'source'")
-
-        # Check for unrecognized fields
-        unrecognized = set(plugin.keys()) - ALLOWED_PLUGIN_FIELDS
-        if unrecognized:
-            result.add_error(
-                f"plugins[{i}]: Unrecognized key(s): {', '.join(sorted(unrecognized))}. "
-                f"Remove these fields or check schema documentation."
-            )
-
-    return result
-
-
-def _fix_move_to_metadata(marketplace_path: Path, field: str):
-    """Move a field from root level to metadata object."""
-    data = json.loads(marketplace_path.read_text(encoding='utf-8'))
-
-    if field in data:
-        if "metadata" not in data:
-            data["metadata"] = {}
-        data["metadata"][field] = data.pop(field)
-        marketplace_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding='utf-8')
-
-
 def validate_source_path(plugin_data: dict, marketplace_path: Path, plugin_idx: int) -> ValidationResult:
     """Validate source path format."""
     result = ValidationResult()
     source = plugin_data.get("source", "")
 
     if isinstance(source, str):
-        # Check if it looks like a URL (not allowed as string)
-        if source.startswith("http://") or source.startswith("https://"):
-            result.add_error(
-                f'plugins[{plugin_idx}].source: URL strings not allowed. '
-                f'Use relative path "./" or GitHub object {{"type": "github", "repo": "user/repo"}}'
-            )
-        elif source and source not in [".", "./"] and not source.startswith("./"):
+        if source and source not in [".", "./"] and not source.startswith("./"):
             fixed_source = f"./{source}"
             result.add_error(
-                f'plugins[{plugin_idx}].source: "{source}" must start with "./" (e.g., "{fixed_source}")',
+                f'source "{source}" must start with "./" (e.g., "{fixed_source}")',
                 Fix(f'Fix source path to "{fixed_source}"', fix_source_path, marketplace_path, plugin_idx, fixed_source)
             )
         else:
             result.add_pass("source path format valid")
     elif isinstance(source, dict):
-        # Check for correct GitHub source format: {"type": "github", "repo": "user/repo"}
-        if "type" not in source:
-            result.add_error(f'plugins[{plugin_idx}].source: GitHub object requires "type" field')
-        elif source.get("type") != "github":
-            result.add_error(f'plugins[{plugin_idx}].source.type: Only "github" is supported')
+        if "source" not in source or "repo" not in source:
+            result.add_error('GitHub source format requires {"source": "github", "repo": "user/repo"}')
+        else:
+            result.add_pass("GitHub source format valid")
 
-        if "repo" not in source:
-            result.add_error(f'plugins[{plugin_idx}].source: GitHub object requires "repo" field (e.g., "user/repo")')
-        elif not isinstance(source.get("repo"), str) or "/" not in source.get("repo", ""):
-            result.add_error(f'plugins[{plugin_idx}].source.repo: Must be in format "owner/repository"')
+    return result
 
-        if "type" in source and source.get("type") == "github" and "repo" in source:
-            result.add_pass(f"GitHub source format valid: {source.get('repo')}")
+
+def validate_marketplace_schema(data: dict, marketplace_path: Path) -> ValidationResult:
+    """Validate marketplace.json follows the official Claude Code schema.
+
+    Official Schema (from Claude Code documentation):
+
+    Required at marketplace level:
+      - name: string (kebab-case, no spaces)
+      - owner: object with required 'name' field
+      - plugins: array of plugin objects
+
+    Optional at marketplace level:
+      - description, version, homepage
+      - metadata: object with description, version, pluginRoot
+
+    Required per plugin:
+      - name: string (kebab-case)
+      - source: string (path starting with ./) or object (GitHub/URL)
+
+    Optional per plugin:
+      - description, version, author, homepage, repository, license
+      - keywords, category, tags, strict
+      - commands, agents, skills, hooks, mcpServers, lspServers
+    """
+    result = ValidationResult()
+
+    # -------------------------------------------------------------------------
+    # RESERVED MARKETPLACE NAMES (STRICT - will be rejected by Claude Code)
+    # -------------------------------------------------------------------------
+    RESERVED_NAMES = {
+        "claude-code-marketplace", "claude-code-plugins", "claude-plugins-official",
+        "anthropic-marketplace", "anthropic-plugins",
+        "agent-skills", "life-sciences"
+    }
+
+    # -------------------------------------------------------------------------
+    # ALLOWED FIELDS (STRICT - unrecognized fields are errors, not warnings)
+    # -------------------------------------------------------------------------
+    ALLOWED_MARKETPLACE_FIELDS = {
+        "name", "owner", "plugins",  # Required
+        "description", "version", "homepage", "metadata", "$schema"  # Optional
+    }
+
+    ALLOWED_OWNER_FIELDS = {"name", "email"}
+
+    ALLOWED_METADATA_FIELDS = {"description", "version", "pluginRoot"}
+
+    ALLOWED_PLUGIN_FIELDS = {
+        "name", "source",  # Required
+        "description", "version", "author", "homepage", "repository", "license",
+        "keywords", "category", "tags", "strict",
+        "commands", "agents", "skills", "hooks", "mcpServers", "lspServers"
+    }
+
+    ALLOWED_AUTHOR_FIELDS = {"name", "email"}
+
+    ALLOWED_SOURCE_TYPES = {"github", "url"}
+
+    # -------------------------------------------------------------------------
+    # 1. VALIDATE MARKETPLACE ROOT STRUCTURE
+    # -------------------------------------------------------------------------
+
+    # Check for unrecognized root fields (ERROR - strict mode)
+    unrecognized_root = set(data.keys()) - ALLOWED_MARKETPLACE_FIELDS
+    if unrecognized_root:
+        result.add_error(
+            f"marketplace.json has unrecognized field(s) at root: {', '.join(sorted(unrecognized_root))}. "
+            f"Allowed fields: {', '.join(sorted(ALLOWED_MARKETPLACE_FIELDS))}"
+        )
+
+    # Required: name (marketplace identifier)
+    if "name" not in data:
+        result.add_error("marketplace.json missing required field: 'name'")
     else:
-        result.add_error(f'plugins[{plugin_idx}].source: Must be string or object, got {type(source).__name__}')
+        name = data["name"]
+        if not isinstance(name, str):
+            result.add_error("'name' must be a string")
+        elif name.lower() in RESERVED_NAMES or any(reserved in name.lower() for reserved in ["anthropic", "official-claude"]):
+            result.add_error(f"marketplace name '{name}' is reserved or impersonates official marketplaces")
+        elif " " in name:
+            result.add_error(f"marketplace name '{name}' must not contain spaces (use kebab-case)")
+        elif not name.replace("-", "").replace("_", "").isalnum():
+            result.add_error(f"marketplace name '{name}' must be alphanumeric with hyphens/underscores only")
+        else:
+            result.add_pass(f"marketplace name '{name}' is valid")
+
+    # Required: owner (object with name)
+    if "owner" not in data:
+        result.add_error("marketplace.json missing required field: 'owner'")
+    else:
+        owner = data["owner"]
+        if not isinstance(owner, dict):
+            result.add_error("'owner' must be an object with 'name' field")
+        else:
+            # Check owner fields
+            unrecognized_owner = set(owner.keys()) - ALLOWED_OWNER_FIELDS
+            if unrecognized_owner:
+                result.add_error(f"'owner' has unrecognized field(s): {', '.join(sorted(unrecognized_owner))}")
+
+            if "name" not in owner:
+                result.add_error("'owner' missing required field: 'name'")
+            elif not isinstance(owner["name"], str) or not owner["name"].strip():
+                result.add_error("'owner.name' must be a non-empty string")
+            else:
+                result.add_pass("owner field is valid")
+
+    # Required: plugins (array of plugin objects)
+    if "plugins" not in data:
+        result.add_error("marketplace.json missing required field: 'plugins'")
+    elif not isinstance(data["plugins"], list):
+        result.add_error("'plugins' must be an array")
+    elif len(data["plugins"]) == 0:
+        result.add_error("'plugins' array is empty - at least one plugin required")
+    else:
+        result.add_pass(f"plugins array contains {len(data['plugins'])} plugin(s)")
+
+    # Optional: metadata validation
+    if "metadata" in data:
+        metadata = data["metadata"]
+        if not isinstance(metadata, dict):
+            result.add_error("'metadata' must be an object")
+        else:
+            unrecognized_meta = set(metadata.keys()) - ALLOWED_METADATA_FIELDS
+            if unrecognized_meta:
+                result.add_error(f"'metadata' has unrecognized field(s): {', '.join(sorted(unrecognized_meta))}")
+            else:
+                result.add_pass("metadata field is valid")
+
+    # -------------------------------------------------------------------------
+    # 2. VALIDATE EACH PLUGIN ENTRY (STRICT)
+    # -------------------------------------------------------------------------
+
+    plugin_names = []
+
+    for i, plugin in enumerate(data.get("plugins", [])):
+        if not isinstance(plugin, dict):
+            result.add_error(f"plugins[{i}] must be an object")
+            continue
+
+        # Check for unrecognized plugin fields (ERROR - strict mode)
+        unrecognized_plugin = set(plugin.keys()) - ALLOWED_PLUGIN_FIELDS
+        if unrecognized_plugin:
+            result.add_error(
+                f"plugins[{i}] has unrecognized field(s): {', '.join(sorted(unrecognized_plugin))}. "
+                f"Allowed: {', '.join(sorted(ALLOWED_PLUGIN_FIELDS))}"
+            )
+
+        # Required: name
+        if "name" not in plugin:
+            result.add_error(f"plugins[{i}] missing required field: 'name'")
+        else:
+            pname = plugin["name"]
+            if not isinstance(pname, str):
+                result.add_error(f"plugins[{i}].name must be a string")
+            elif " " in pname:
+                result.add_error(f"plugins[{i}].name '{pname}' must not contain spaces")
+            else:
+                plugin_names.append(pname)
+                result.add_pass(f"plugins[{i}].name '{pname}' is valid")
+
+        # Required: source (STRICT format validation)
+        if "source" not in plugin:
+            result.add_error(f"plugins[{i}] missing required field: 'source'")
+        else:
+            source = plugin["source"]
+
+            if isinstance(source, str):
+                # Path source - must start with ./
+                if not source.startswith("./"):
+                    result.add_error(
+                        f"plugins[{i}].source '{source}' must start with './' "
+                        f"(e.g., './' or './plugins/name')"
+                    )
+                # Path traversal check
+                elif ".." in source:
+                    result.add_error(
+                        f"plugins[{i}].source '{source}' contains path traversal (..) which is not allowed"
+                    )
+                else:
+                    result.add_pass(f"plugins[{i}].source path format is valid")
+
+            elif isinstance(source, dict):
+                # Object source - must have valid structure
+                source_type = source.get("source")
+
+                if source_type not in ALLOWED_SOURCE_TYPES:
+                    result.add_error(
+                        f"plugins[{i}].source.source must be one of: {', '.join(ALLOWED_SOURCE_TYPES)}. "
+                        f"Got: '{source_type}'"
+                    )
+                elif source_type == "github":
+                    if "repo" not in source:
+                        result.add_error(f"plugins[{i}].source with type 'github' requires 'repo' field")
+                    elif not isinstance(source["repo"], str) or "/" not in source["repo"]:
+                        result.add_error(f"plugins[{i}].source.repo must be in format 'owner/repo'")
+                    else:
+                        result.add_pass(f"plugins[{i}].source GitHub format is valid")
+                elif source_type == "url":
+                    if "url" not in source:
+                        result.add_error(f"plugins[{i}].source with type 'url' requires 'url' field")
+                    elif not isinstance(source["url"], str) or not source["url"].startswith(("http://", "https://")):
+                        result.add_error(f"plugins[{i}].source.url must be a valid HTTP(S) URL")
+                    else:
+                        result.add_pass(f"plugins[{i}].source URL format is valid")
+            else:
+                result.add_error(
+                    f"plugins[{i}].source must be a string (path) or object (GitHub/URL source)"
+                )
+
+        # Optional: author validation
+        if "author" in plugin:
+            author = plugin["author"]
+            if not isinstance(author, dict):
+                result.add_error(f"plugins[{i}].author must be an object with 'name' field")
+            else:
+                unrecognized_author = set(author.keys()) - ALLOWED_AUTHOR_FIELDS
+                if unrecognized_author:
+                    result.add_error(f"plugins[{i}].author has unrecognized field(s): {', '.join(sorted(unrecognized_author))}")
+                if "name" not in author:
+                    result.add_error(f"plugins[{i}].author missing required 'name' field")
+
+        # Optional: array field validations
+        for array_field in ["commands", "agents", "skills", "keywords", "tags"]:
+            if array_field in plugin:
+                value = plugin[array_field]
+                if not isinstance(value, (list, str)):
+                    result.add_error(f"plugins[{i}].{array_field} must be an array or string")
+                elif isinstance(value, list):
+                    for j, item in enumerate(value):
+                        if not isinstance(item, str):
+                            result.add_error(f"plugins[{i}].{array_field}[{j}] must be a string")
+                        # Path traversal check for path arrays
+                        elif array_field in ["commands", "agents", "skills"] and ".." in item:
+                            result.add_error(f"plugins[{i}].{array_field}[{j}] contains path traversal (..) which is not allowed")
+
+    # -------------------------------------------------------------------------
+    # 3. CHECK FOR DUPLICATE PLUGIN NAMES (STRICT)
+    # -------------------------------------------------------------------------
+
+    seen_names = set()
+    for pname in plugin_names:
+        if pname in seen_names:
+            result.add_error(f"Duplicate plugin name '{pname}' - each plugin must have a unique name")
+        seen_names.add(pname)
 
     return result
 
@@ -819,17 +947,15 @@ def main():
 
     for i, plugin in enumerate(plugins):
         source = plugin.get("source", "./")
-
-        # Determine effective root based on source type
+        # Handle both string paths and GitHub source objects
         if isinstance(source, dict):
-            # GitHub source object - plugin files are in the current directory
+            # GitHub source: plugin files are in the current directory
             effective_root = plugin_root
         elif source in [".", "./"]:
             effective_root = plugin_root
         elif isinstance(source, str):
             effective_root = plugin_root / source.lstrip("./")
         else:
-            # Invalid source type - will be caught by validate_source_path
             effective_root = plugin_root
 
         total_result.merge(validate_source_path(plugin, marketplace_path, i))
