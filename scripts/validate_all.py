@@ -819,10 +819,18 @@ def main():
 
     for i, plugin in enumerate(plugins):
         source = plugin.get("source", "./")
-        if source in [".", "./"]:
+
+        # Determine effective root based on source type
+        if isinstance(source, dict):
+            # GitHub source object - plugin files are in the current directory
             effective_root = plugin_root
-        else:
+        elif source in [".", "./"]:
+            effective_root = plugin_root
+        elif isinstance(source, str):
             effective_root = plugin_root / source.lstrip("./")
+        else:
+            # Invalid source type - will be caught by validate_source_path
+            effective_root = plugin_root
 
         total_result.merge(validate_source_path(plugin, marketplace_path, i))
         total_result.merge(validate_registration(effective_root, plugin, marketplace_path))

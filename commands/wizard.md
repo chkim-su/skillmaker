@@ -71,15 +71,26 @@ Task: skill-architect
 Pass: description, skill_type
 ```
 
-5. **Post-creation validation** (CRITICAL):
+5. **Post-creation validation** (MANDATORY - BLOCKING):
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --json
 ```
-- If errors: Show errors and offer `--fix`
-- If warnings: Show warnings, continue
-- If pass: Show success
 
-6. After creation, show next steps:
+**CRITICAL: This step MUST pass before proceeding. DO NOT skip.**
+
+- **If status="fail"**:
+  1. Show ALL errors to user
+  2. Ask: "자동 수정을 실행할까요?" (Run auto-fix?)
+  3. If yes: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --fix`
+  4. Re-run validation after fix
+  5. **LOOP until status != "fail"** - DO NOT proceed with errors
+  6. If user declines fix: **STOP HERE** - show "검증 실패. 수동으로 오류를 수정한 후 다시 시도하세요."
+
+- **If status="warn"**: Show warnings, ask to continue (user may proceed)
+
+- **If status="pass"**: Show "✅ 검증 통과" and continue
+
+6. After validation passes, show next steps:
 ```markdown
 ## Next Steps
 
@@ -119,13 +130,10 @@ Task: skill-converter
 Pass: target_path, description
 ```
 
-4. **Post-creation validation** (CRITICAL):
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
-```
-- If errors: Show errors and offer `--fix`
+4. **Post-creation validation** (MANDATORY - BLOCKING):
+   Same as SKILL step 5. **MUST pass before proceeding.**
 
-5. After creation, show next steps (same as SKILL step 6)
+5. After validation passes, show next steps (same as SKILL step 6)
 
 ---
 
@@ -152,13 +160,10 @@ Task: skill-orchestrator-designer
 Pass: selected_skills, description
 ```
 
-6. **Post-creation validation** (CRITICAL):
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
-```
-- If errors: Show errors and offer `--fix`
+6. **Post-creation validation** (MANDATORY - BLOCKING):
+   Same as SKILL step 5. **MUST pass before proceeding.**
 
-7. After creation, show next steps (same as SKILL step 6)
+7. After validation passes, show next steps (same as SKILL step 6)
 
 ---
 
@@ -189,13 +194,10 @@ AskUserQuestion:
 
 5. Write `.claude/commands/{name}.md` with selected agents and flow pattern.
 
-6. **Post-creation validation** (CRITICAL):
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
-```
-- If errors: Show errors and offer `--fix`
+6. **Post-creation validation** (MANDATORY - BLOCKING):
+   Same as SKILL step 5. **MUST pass before proceeding.**
 
-7. After creation, show next steps (same as SKILL step 6)
+7. After validation passes, show next steps (same as SKILL step 6)
 
 ---
 
