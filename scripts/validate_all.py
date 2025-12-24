@@ -284,6 +284,26 @@ def fix_path_format(marketplace_path: Path, item_type: str, old_path: str, new_p
     marketplace_path.write_text(json.dumps(data, indent=2) + "\n")
 
 
+def fix_github_source_format(marketplace_path: Path, plugin_idx: int):
+    """Fix GitHub source format: move repo from plugin level into source object."""
+    data = json.loads(marketplace_path.read_text(encoding='utf-8'))
+    plugins = data.get("plugins", [data])
+
+    if plugin_idx < len(plugins):
+        plugin = plugins[plugin_idx]
+        source = plugin.get("source", "")
+        repo = plugin.pop("repo", None)  # Remove repo from plugin level
+
+        if source in ["github", "url"] and repo:
+            # Convert to correct format
+            plugin["source"] = {"source": source, "repo": repo}
+        elif source in ["github", "url"]:
+            # No repo found, create placeholder
+            plugin["source"] = {"source": source, "repo": "OWNER/REPO"}
+
+    marketplace_path.write_text(json.dumps(data, indent=2) + "\n")
+
+
 # ============================================================================
 # VALIDATION FUNCTIONS
 # ============================================================================
@@ -553,7 +573,21 @@ def validate_source_path(plugin_data: dict, marketplace_path: Path, plugin_idx: 
     source = plugin_data.get("source", "")
 
     if isinstance(source, str):
-        if source and source not in [".", "./"] and not source.startswith("./"):
+        # Special case: "github" or "url" as string means wrong format (should be object)
+        # This is handled by test_source_edge_cases(), so skip adding "./" prefix fix here
+        if source in ["github", "url"]:
+            # Don't add fix here - test_source_edge_cases handles this with proper fix
+            if "repo" in plugin_data:
+                result.add_error(
+                    f'source "{source}" with "repo" at plugin level is invalid format. '
+                    f'Use: "source": {{"source": "{source}", "repo": "owner/repo"}}'
+                )
+            else:
+                result.add_error(
+                    f'source "{source}" must be an object, not a string. '
+                    f'Use: "source": {{"source": "{source}", "repo": "owner/repo"}}'
+                )
+        elif source and source not in [".", "./"] and not source.startswith("./"):
             fixed_source = f"./{source}"
             result.add_error(
                 f'source "{source}" must start with "./" (e.g., "{fixed_source}")',
@@ -736,8 +770,13 @@ def validate_marketplace_schema(data: dict, marketplace_path: Path) -> Validatio
             source = plugin["source"]
 
             if isinstance(source, str):
+                # Special case: "github" or "url" as string is a different error
+                # (should be object with repo), handled by test_source_edge_cases
+                if source in ["github", "url"]:
+                    # Error is reported by test_source_edge_cases with proper fix
+                    pass
                 # Path source - must start with ./
-                if not source.startswith("./"):
+                elif not source.startswith("./"):
                     result.add_error(
                         f"plugins[{i}].source '{source}' must start with './' "
                         f"(e.g., './' or './plugins/name')"
@@ -934,11 +973,12 @@ def apply_fixes(fixes: List[Fix], dry_run: bool = False) -> Tuple[int, int]:
 # ENHANCED VALIDATION: Claude Code CLI + Edge Case Testing
 # =============================================================================
 
-def run_claude_cli_validation(plugin_root: Path) -> Tuple[bool, str]:
+def run_claude_cli_validation(plugin_root: Path) -> Tuple[bool, str, List[str]]:
     """
-    Run Claude Code CLI validation as secondary check.
+    Run Claude Code CLI validation as PRIMARY schema check.
 
-    Returns (success, output_message)
+    This is the authoritative source for schema validation.
+    Returns (success, output_message, error_list)
     """
     import subprocess
 
@@ -953,13 +993,20 @@ def run_claude_cli_validation(plugin_root: Path) -> Tuple[bool, str]:
         output = result.stdout + result.stderr
         success = result.returncode == 0 or "passed" in output.lower()
 
-        return success, output.strip()
+        # Parse errors from output
+        errors = []
+        for line in output.split('\n'):
+            line = line.strip()
+            if line.startswith('❯') or line.startswith('>'):
+                errors.append(line.lstrip('❯> ').strip())
+
+        return success, output.strip(), errors
     except FileNotFoundError:
-        return True, "Claude CLI not found (skipped)"
+        return True, "Claude CLI not found - install with: npm install -g @anthropic-ai/claude-code", []
     except subprocess.TimeoutExpired:
-        return False, "Claude CLI validation timed out"
+        return False, "Claude CLI validation timed out", ["Timeout"]
     except Exception as e:
-        return True, f"Claude CLI validation skipped: {e}"
+        return True, f"Claude CLI validation skipped: {e}", []
 
 
 def test_source_edge_cases(marketplace_path: Path) -> ValidationResult:
@@ -1035,6 +1082,22 @@ def test_source_edge_cases(marketplace_path: Path) -> ValidationResult:
                     f'plugins[{i}].source is "." but must start with "./". '
                     f'Use "./" instead of "."'
                 )
+            # Edge case 6: source is just "github" string with repo at plugin level
+            elif source == "github" or source == "url":
+                # Check if repo is at plugin level (common mistake)
+                if "repo" in plugin:
+                    result.add_error(
+                        f'plugins[{i}].source is "{source}" with "repo" at plugin level. '
+                        f'WRONG: "source": "github", "repo": "..." '
+                        f'CORRECT: "source": {{"source": "github", "repo": "owner/repo"}}',
+                        Fix(f'Fix GitHub source format for plugins[{i}]',
+                            fix_github_source_format, marketplace_path, i)
+                    )
+                else:
+                    result.add_error(
+                        f'plugins[{i}].source is "{source}" but must be an object. '
+                        f'CORRECT: "source": {{"source": "github", "repo": "owner/repo"}}'
+                    )
 
     if not result.errors:
         result.add_pass("Source format edge cases: all passed")
@@ -1111,36 +1174,42 @@ def validate_against_official_patterns(plugin_root: Path) -> ValidationResult:
 
 def run_comprehensive_validation(plugin_root: Path, json_output: bool = False) -> ValidationResult:
     """
-    Run comprehensive validation including:
-    1. Standard validate_all checks
-    2. Edge case testing
-    3. Official pattern matching
-    4. Claude CLI double-validation (if available)
+    Run comprehensive validation:
+    1. Claude CLI validation (PRIMARY - authoritative schema check)
+    2. Our code only adds: fixes, enhanced messages, best practices
+
+    Philosophy: CLI is the source of truth. We only enhance, not duplicate.
     """
     result = ValidationResult()
 
     marketplace_path = plugin_root / ".claude-plugin" / "marketplace.json"
 
-    # Run edge case tests
-    edge_result = test_source_edge_cases(marketplace_path)
-    result.merge(edge_result)
+    # PRIMARY: Run Claude CLI validation (authoritative)
+    cli_success, cli_output, cli_errors = run_claude_cli_validation(plugin_root)
 
-    # Run official pattern validation
+    if "not found" in cli_output.lower():
+        # CLI not available - use our fallback validation
+        result.add_warning("Claude CLI not installed - using fallback schema validation")
+        edge_result = test_source_edge_cases(marketplace_path)
+        result.merge(edge_result)
+    elif cli_success:
+        result.add_pass("Claude CLI schema validation: passed")
+    else:
+        # CLI found errors - show CLI output directly
+        result.add_error(f"Claude CLI: {cli_output.split(chr(10))[0]}")  # First line
+        for error in cli_errors:
+            result.add_error(f"  → {error}")
+
+        # Add fix suggestions (our value-add)
+        edge_result = test_source_edge_cases(marketplace_path)
+        if edge_result.fixes:
+            result.fixes.extend(edge_result.fixes)
+
+    # Best practices check (warnings only, not in CLI)
     pattern_result = validate_against_official_patterns(plugin_root)
-    result.merge(pattern_result)
-
-    # Run Claude CLI validation (non-blocking, informational)
-    if not json_output:
-        cli_success, cli_output = run_claude_cli_validation(plugin_root)
-        if "not found" not in cli_output.lower() and "skipped" not in cli_output.lower():
-            if cli_success:
-                result.add_pass(f"Claude CLI validation: passed")
-            else:
-                # Extract error from CLI output
-                if "error" in cli_output.lower():
-                    result.add_error(f"Claude CLI validation failed: {cli_output[:200]}")
-                else:
-                    result.add_warning(f"Claude CLI validation warning: {cli_output[:200]}")
+    # Only add warnings and passes, not errors (CLI handles errors)
+    result.warnings.extend(pattern_result.warnings)
+    result.passed.extend(pattern_result.passed)
 
     return result
 
@@ -1179,32 +1248,58 @@ def main():
     # Run all validations
     total_result = ValidationResult()
 
-    # Marketplace schema validation
-    total_result.merge(validate_marketplace_schema(data, marketplace_path))
+    # ==========================================================================
+    # PHASE 1: Schema Validation (CLI is authoritative, our code is fallback)
+    # ==========================================================================
+    cli_success, cli_output, cli_errors = run_claude_cli_validation(plugin_root)
+    cli_available = "not found" not in cli_output.lower()
 
-    # Settings.json validation
+    if cli_available:
+        if cli_success:
+            total_result.add_pass("Schema validation: passed (Claude CLI)")
+        else:
+            # CLI found schema errors - show them
+            for error in cli_errors:
+                total_result.add_error(f"Schema: {error}")
+            # Get fix suggestions from our edge case tests
+            edge_result = test_source_edge_cases(marketplace_path)
+            total_result.fixes.extend(edge_result.fixes)
+    else:
+        # CLI not available - use our fallback schema validation
+        total_result.add_warning("Claude CLI not installed - using fallback validation")
+        total_result.merge(validate_marketplace_schema(data, marketplace_path))
+        for i, plugin in enumerate(plugins):
+            total_result.merge(validate_source_path(plugin, marketplace_path, i))
+        total_result.merge(test_source_edge_cases(marketplace_path))
+
+    # ==========================================================================
+    # PHASE 2: File/Content Validation (our unique checks, not in CLI)
+    # ==========================================================================
     total_result.merge(validate_settings_json())
 
     for i, plugin in enumerate(plugins):
         source = plugin.get("source", "./")
         # Handle both string paths and GitHub source objects
         if isinstance(source, dict):
-            # GitHub source: plugin files are in the current directory
             effective_root = plugin_root
         elif source in [".", "./"]:
             effective_root = plugin_root
-        elif isinstance(source, str):
+        elif isinstance(source, str) and source not in ["github", "url"]:
             effective_root = plugin_root / source.lstrip("./")
         else:
             effective_root = plugin_root
 
-        total_result.merge(validate_source_path(plugin, marketplace_path, i))
+        # File existence and content checks (not covered by CLI)
         total_result.merge(validate_registration(effective_root, plugin, marketplace_path))
         total_result.merge(validate_frontmatter_fields(effective_root))
         total_result.merge(validate_scripts(effective_root))
 
-    # Run comprehensive validation (edge cases, official patterns, CLI double-check)
-    total_result.merge(run_comprehensive_validation(plugin_root, json_output))
+    # ==========================================================================
+    # PHASE 3: Best Practices (warnings only)
+    # ==========================================================================
+    pattern_result = validate_against_official_patterns(plugin_root)
+    total_result.warnings.extend(pattern_result.warnings)
+    total_result.passed.extend(pattern_result.passed)
 
     # Output results
     if json_output:

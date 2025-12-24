@@ -73,6 +73,7 @@ type %USERPROFILE%\.claude\settings.json
 | Check | Severity | Description |
 |-------|----------|-------------|
 | `"type"` instead of `"source"` | **BLOCK** | GitHub format is `{"source": "github"}` NOT `{"type": "github"}` |
+| `"repo"` at plugin level | **BLOCK** | Must be `{"source": {"source": "github", "repo": "..."}}` |
 | Empty source (`""`, `{}`, `null`) | **BLOCK** | Source must be valid path or object |
 | Missing `repo` field | **BLOCK** | GitHub source requires `{"source": "github", "repo": "owner/repo"}` |
 | Path not starting with `./` | **BLOCK** | Path sources must start with `./` |

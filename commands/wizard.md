@@ -249,9 +249,27 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
 | Error | Cause | Fix |
 |-------|-------|-----|
 | `uses "type" key but must use "source"` | Wrong JSON key | Change `{"type": "github"}` → `{"source": "github"}` |
+| `"github" with "repo" at plugin level` | Wrong nesting | Move `repo` inside source: `{"source": {"source": "github", "repo": "..."}}` |
 | `skills has .md extension` | Skills are directories | Remove `.md` from skill paths |
 | `commands missing .md` | Commands are files | Add `.md` to command paths |
 | `source is empty object` | Missing required fields | Add `{"source": "github", "repo": "..."}` |
+
+### GitHub Source Format Reference
+
+```json
+// ✅ CORRECT
+"source": {"source": "github", "repo": "owner/repo"}
+
+// ❌ WRONG - "type" instead of "source"
+"source": {"type": "github", "repo": "owner/repo"}
+
+// ❌ WRONG - "repo" at plugin level
+"source": "github",
+"repo": "owner/repo"
+
+// ❌ WRONG - just a string
+"source": "github"
+```
 
 **FORBIDDEN BEHAVIORS:**
 - ❌ Reading files manually and reporting "looks good"
