@@ -289,7 +289,7 @@ def main():
     if settings_errors:
         print("SETTINGS.JSON ISSUES DETECTED:")
         for e in settings_errors:
-            print(f"  ❌ {e}")
+            print(f"  [ERROR] {e}")
         print()
 
     # Find marketplace.json
@@ -347,11 +347,11 @@ def main():
             print("COMMANDS:")
             errors, warnings, passed = validate_commands(effective_root, registered_commands)
             for e in errors:
-                print(f"  ❌ {e}")
+                print(f"  [ERROR] {e}")
             for w in warnings:
-                print(f"  ⚠️  {w}")
+                print(f"  [WARN]  {w}")
             for p in passed:
-                print(f"  ✅ {p}")
+                print(f"  [PASS] {p}")
             if not errors and not warnings and not passed:
                 print("  (none)")
             print()
@@ -364,11 +364,11 @@ def main():
             print("AGENTS:")
             errors, warnings, passed = validate_agents(effective_root, registered_agents)
             for e in errors:
-                print(f"  ❌ {e}")
+                print(f"  [ERROR] {e}")
             for w in warnings:
-                print(f"  ⚠️  {w}")
+                print(f"  [WARN]  {w}")
             for p in passed:
-                print(f"  ✅ {p}")
+                print(f"  [PASS] {p}")
             if not errors and not warnings and not passed:
                 print("  (none)")
             print()
@@ -381,11 +381,11 @@ def main():
             print("SKILLS:")
             errors, warnings, passed = validate_skills(effective_root, registered_skills)
             for e in errors:
-                print(f"  ❌ {e}")
+                print(f"  [ERROR] {e}")
             for w in warnings:
-                print(f"  ⚠️  {w}")
+                print(f"  [WARN]  {w}")
             for p in passed:
-                print(f"  ✅ {p}")
+                print(f"  [PASS] {p}")
             if not errors and not warnings and not passed:
                 print("  (none)")
             print()
@@ -397,27 +397,27 @@ def main():
     print("=" * 60)
     print("SUMMARY")
     print("=" * 60)
-    print(f"  Errors:   {len(total_errors)} ❌")
-    print(f"  Warnings: {len(total_warnings)} ⚠️")
-    print(f"  Passed:   {len(total_passed)} ✅")
+    print(f"  Errors:   {len(total_errors)} [ERROR]")
+    print(f"  Warnings: {len(total_warnings)} [WARN]")
+    print(f"  Passed:   {len(total_passed)} [PASS]")
     print()
 
     if total_errors:
-        print("STATUS: ❌ DEPLOYMENT WILL FAIL")
+        print("STATUS: [ERROR] DEPLOYMENT WILL FAIL")
         print()
         print("Fix these errors:")
         for i, e in enumerate(total_errors, 1):
             print(f"  {i}. {e}")
         sys.exit(1)
     elif total_warnings:
-        print("STATUS: ⚠️  DEPLOYMENT MAY HAVE ISSUES")
+        print("STATUS: [WARN]  DEPLOYMENT MAY HAVE ISSUES")
         print()
         print("Consider fixing these warnings:")
         for i, w in enumerate(total_warnings, 1):
             print(f"  {i}. {w}")
         sys.exit(2)
     else:
-        print("STATUS: ✅ READY FOR DEPLOYMENT")
+        print("STATUS: [PASS] READY FOR DEPLOYMENT")
         sys.exit(0)
 
 

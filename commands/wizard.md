@@ -10,14 +10,14 @@ Analyze input. Match first pattern:
 
 | Pattern | Route |
 |---------|-------|
-| `skill.*create\|create.*skill\|스킬.*만들` | → SKILL |
-| `convert\|from.*code\|skillization\|변환` | → SKILL_FROM_CODE |
-| `agent\|에이전트\|subagent` | → AGENT |
-| `command\|workflow\|명령어` | → COMMAND |
-| `validate\|check\|검증\|분석\|상태\|status\|analyze` | → VALIDATE |
-| `publish\|deploy\|배포` | → PUBLISH |
-| `register\|local\|등록\|로컬` | → LOCAL_REGISTER |
-| no match / empty | → MENU |
+| `skill.*create\|create.*skill\|스킬.*만들` | => SKILL |
+| `convert\|from.*code\|skillization\|변환` | => SKILL_FROM_CODE |
+| `agent\|에이전트\|subagent` | => AGENT |
+| `command\|workflow\|명령어` | => COMMAND |
+| `validate\|check\|검증\|분석\|상태\|status\|analyze` | => VALIDATE |
+| `publish\|deploy\|배포` | => PUBLISH |
+| `register\|local\|등록\|로컬` | => LOCAL_REGISTER |
+| no match / empty | => MENU |
 
 **CRITICAL RULE**: When routing to VALIDATE, you MUST execute the actual validation script.
 DO NOT perform "visual analysis" or "manual inspection" - ALWAYS run the script.
@@ -43,7 +43,7 @@ AskUserQuestion:
       description: "Deploy to marketplace (after testing)"
 ```
 
-Route: Skill→SKILL, Agent→AGENT, Command→COMMAND, Validate→VALIDATE, Publish→PUBLISH
+Route: Skill=>SKILL, Agent=>AGENT, Command=>COMMAND, Validate=>VALIDATE, Publish=>PUBLISH
 
 ---
 
@@ -66,7 +66,7 @@ AskUserQuestion:
     - label: "Unsure"
 ```
 
-3. If "Unsure": ask freedom level (High→Knowledge, Medium→Hybrid, Low→Tool)
+3. If "Unsure": ask freedom level (High=>Knowledge, Medium=>Hybrid, Low=>Tool)
 
 4. Launch:
 ```
@@ -91,7 +91,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --json
 
 - **If status="warn"**: Show warnings, ask to continue (user may proceed)
 
-- **If status="pass"**: Show "✅ 검증 통과" and continue
+- **If status="pass"**: Show "[PASS] 검증 통과" and continue
 
 6. After validation passes, show next steps:
 ```markdown
@@ -144,7 +144,7 @@ Pass: target_path, description
 
 1. Check: `Glob .claude/skills/*/SKILL.md`
 
-2. If none: "No skills found. Create skill first?" → Yes: goto SKILL
+2. If none: "No skills found. Create skill first?" => Yes: goto SKILL
 
 3. List skills, ask selection:
 ```yaml
@@ -174,7 +174,7 @@ Pass: selected_skills, description
 
 1. Check: `Glob .claude/agents/*.md`
 
-2. If none: "No agents found. Create agent first?" → Yes: goto AGENT
+2. If none: "No agents found. Create agent first?" => Yes: goto AGENT
 
 3. List agents, ask selection:
 ```yaml
@@ -206,7 +206,7 @@ AskUserQuestion:
 
 # VALIDATE
 
-**⚠️ MANDATORY: You MUST execute the actual validation script. NO exceptions.**
+**[!] MANDATORY: You MUST execute the actual validation script. NO exceptions.**
 **DO NOT perform "visual analysis", "manual inspection", or "eye-check". ALWAYS run the script.**
 
 ## Validation Checks Performed
@@ -242,40 +242,28 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
 
 4. **If status="warn" (warnings only)**: Show warnings, explain they won't block deployment
 
-5. **If status="pass"**: Show "✅ 검증 통과 - 배포 준비 완료"
+5. **If status="pass"**: Show "[PASS] 검증 통과 - 배포 준비 완료"
 
-## Common Error Solutions
+## Error Handling
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `uses "type" key but must use "source"` | Wrong JSON key | Change `{"type": "github"}` → `{"source": "github"}` |
-| `"github" with "repo" at plugin level` | Wrong nesting | Move `repo` inside source: `{"source": {"source": "github", "repo": "..."}}` |
-| `skills has .md extension` | Skills are directories | Remove `.md` from skill paths |
-| `commands missing .md` | Commands are files | Add `.md` to command paths |
-| `source is empty object` | Missing required fields | Add `{"source": "github", "repo": "..."}` |
+모든 스키마 오류는 **자동 수정** 가능:
 
-### GitHub Source Format Reference
-
-```json
-// ✅ CORRECT
-"source": {"source": "github", "repo": "owner/repo"}
-
-// ❌ WRONG - "type" instead of "source"
-"source": {"type": "github", "repo": "owner/repo"}
-
-// ❌ WRONG - "repo" at plugin level
-"source": "github",
-"repo": "owner/repo"
-
-// ❌ WRONG - just a string
-"source": "github"
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --fix
 ```
 
+자동 수정 항목:
+- 잘못된 `source` 형식 => 올바른 형식으로 변환
+- 잘못된 `repository` 객체 => 문자열로 변환
+- 금지된 필드 (`components`, `repo` at plugin level) => 제거
+- 누락된 `.md` 확장자 => 추가
+- 잘못된 `.md` 확장자 (skills) => 제거
+
 **FORBIDDEN BEHAVIORS:**
-- ❌ Reading files manually and reporting "looks good"
-- ❌ Checking file existence without running the script
-- ❌ Saying "based on previous analysis" without running script NOW
-- ❌ Skipping the script execution for any reason
+- [X] Reading files manually and reporting "looks good"
+- [X] Checking file existence without running the script
+- [X] Saying "based on previous analysis" without running script NOW
+- [X] Skipping the script execution for any reason
 
 ---
 
@@ -313,29 +301,29 @@ Deploy to marketplace after testing.
 
 ## Pre-Deployment Checklist
 
-**⚠️ CRITICAL FORMAT REQUIREMENTS - Review before deployment:**
+**[!] CRITICAL FORMAT REQUIREMENTS - Review before deployment:**
 
 ### 1. GitHub Source Format
 ```json
-// ✅ CORRECT
+// [PASS] CORRECT
 "source": {"source": "github", "repo": "owner/repo"}
 
-// ❌ WRONG - "type" instead of "source"
+// [X] WRONG - "type" instead of "source"
 "source": {"type": "github", "repo": "owner/repo"}
 ```
 
 ### 2. Skills Path Format
 ```json
-// ✅ CORRECT - skills are directories
+// [PASS] CORRECT - skills are directories
 "skills": ["./skills/my-skill"]
 
-// ❌ WRONG - skills are NOT .md files
+// [X] WRONG - skills are NOT .md files
 "skills": ["./skills/my-skill.md"]
 ```
 
 ### 3. Commands/Agents Path Format
 ```json
-// ✅ CORRECT - commands and agents ARE .md files
+// [PASS] CORRECT - commands and agents ARE .md files
 "commands": ["./commands/my-cmd.md"],
 "agents": ["./agents/my-agent.md"]
 ```
@@ -360,11 +348,11 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/check_local_registration.py --path $(pwd)
 
 2. If not registered locally:
 ```markdown
-⚠️ 로컬 등록이 필요합니다.
+[!] 로컬 등록이 필요합니다.
 
 먼저 `/wizard register`를 실행하여 로컬에서 테스트하세요.
 ```
-→ Exit
+=> Exit
 
 3. Ask testing confirmation:
 ```yaml
@@ -384,7 +372,7 @@ AskUserQuestion:
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
 ```
-   - **If ANY errors exist → STOP and fix first**
+   - **If ANY errors exist => STOP and fix first**
    - Show user the exact errors and how to fix them
    - Do NOT proceed with errors
 

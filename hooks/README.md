@@ -2,7 +2,7 @@
 
 This directory contains **BLOCKING** hook configurations for mandatory plugin validation.
 
-## ⚠️ CRITICAL: All Hooks Are BLOCKING
+## [!] CRITICAL: All Hooks Are BLOCKING
 
 | Hook | Trigger | Behavior |
 |------|---------|----------|

@@ -50,7 +50,7 @@ class Fix:
             self.fix_func(*self.args)
             return True
         except Exception as e:
-            print(f"  ⚠️  Fix failed: {e}")
+            print(f"  [WARN]  Fix failed: {e}")
             return False
 
 
@@ -302,6 +302,27 @@ def fix_github_source_format(marketplace_path: Path, plugin_idx: int):
             plugin["source"] = {"source": source, "repo": "OWNER/REPO"}
 
     marketplace_path.write_text(json.dumps(data, indent=2) + "\n")
+
+
+def fix_plugin_json_schema(plugin_json_path: Path):
+    """Auto-fix plugin.json to conform to schema."""
+    data = json.loads(plugin_json_path.read_text(encoding='utf-8'))
+
+    # Allowed fields only
+    ALLOWED = {"name", "version", "description", "author", "repository",
+               "homepage", "license", "keywords", "category", "tags"}
+
+    # Remove forbidden fields
+    for key in list(data.keys()):
+        if key not in ALLOWED:
+            del data[key]
+
+    # Fix repository format (object => string)
+    if "repository" in data and isinstance(data["repository"], dict):
+        url = data["repository"].get("url", "")
+        data["repository"] = url
+
+    plugin_json_path.write_text(json.dumps(data, indent=2) + "\n")
 
 
 # ============================================================================
@@ -657,6 +678,12 @@ def validate_marketplace_schema(data: dict, marketplace_path: Path) -> Validatio
         "commands", "agents", "skills", "hooks", "mcpServers", "lspServers"
     }
 
+    # Fields that are commonly mistakenly added
+    FORBIDDEN_PLUGIN_FIELDS = {
+        "components",  # Not part of Claude Code schema
+        "repo",        # Should be inside source object, not at plugin level
+    }
+
     ALLOWED_AUTHOR_FIELDS = {"name", "email"}
 
     ALLOWED_SOURCE_TYPES = {"github", "url"}
@@ -847,6 +874,27 @@ def validate_marketplace_schema(data: dict, marketplace_path: Path) -> Validatio
                 if "name" not in author:
                     result.add_error(f"plugins[{i}].author missing required 'name' field")
 
+        # Optional: repository validation (MUST be string, not object)
+        if "repository" in plugin:
+            repo = plugin["repository"]
+            if isinstance(repo, dict):
+                result.add_error(
+                    f'plugins[{i}].repository must be a string URL, not an object. '
+                    f'WRONG: {{"type": "git", "url": "..."}} '
+                    f'CORRECT: "https://github.com/owner/repo"'
+                )
+            elif not isinstance(repo, str):
+                result.add_error(f"plugins[{i}].repository must be a string URL")
+            elif not repo.startswith(("http://", "https://")):
+                result.add_warning(f"plugins[{i}].repository should be a full URL (https://...)")
+
+        # Check for forbidden fields with specific error messages
+        if "components" in plugin:
+            result.add_error(
+                f'plugins[{i}].components is not allowed. '
+                f'Use "skills", "agents", "commands" arrays instead of "components" object.'
+            )
+
         # Optional: array field validations
         for array_field in ["commands", "agents", "skills", "keywords", "tags"]:
             if array_field in plugin:
@@ -870,6 +918,53 @@ def validate_marketplace_schema(data: dict, marketplace_path: Path) -> Validatio
         if pname in seen_names:
             result.add_error(f"Duplicate plugin name '{pname}' - each plugin must have a unique name")
         seen_names.add(pname)
+
+    return result
+
+
+def validate_plugin_json(plugin_root: Path) -> ValidationResult:
+    """Validate plugin.json if it exists. Auto-fixable."""
+    result = ValidationResult()
+
+    plugin_json = plugin_root / ".claude-plugin" / "plugin.json"
+    if not plugin_json.exists():
+        return result
+
+    try:
+        data = json.loads(plugin_json.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as e:
+        result.add_error(f"plugin.json: Invalid JSON: {e}")
+        return result
+
+    # Allowed fields in plugin.json
+    ALLOWED_FIELDS = {
+        "name", "version", "description", "author", "repository",
+        "homepage", "license", "keywords", "category", "tags"
+    }
+
+    needs_fix = False
+
+    # Check for unrecognized fields
+    unrecognized = set(data.keys()) - ALLOWED_FIELDS
+    if unrecognized:
+        needs_fix = True
+        result.add_error(
+            f'plugin.json: removing invalid field(s): {", ".join(sorted(unrecognized))}'
+        )
+
+    # Check repository format
+    if "repository" in data and isinstance(data["repository"], dict):
+        needs_fix = True
+        result.add_error('plugin.json: converting repository object => string')
+
+    # Add auto-fix
+    if needs_fix:
+        result.fixes.append(Fix(
+            "Fix plugin.json schema",
+            fix_plugin_json_schema, plugin_json
+        ))
+    else:
+        result.add_pass("plugin.json: valid")
 
     return result
 
@@ -955,13 +1050,13 @@ def apply_fixes(fixes: List[Fix], dry_run: bool = False) -> Tuple[int, int]:
     print("=" * 60)
 
     for fix in fixes:
-        print(f"\n{'[DRY-RUN] ' if dry_run else ''}→ {fix.description}")
+        print(f"\n{'[DRY-RUN] ' if dry_run else ''}=> {fix.description}")
 
         if dry_run:
             success += 1
         else:
             if fix.apply():
-                print(f"  ✅ Done")
+                print(f"  [PASS] Done")
                 success += 1
             else:
                 fail += 1
@@ -1198,7 +1293,7 @@ def run_comprehensive_validation(plugin_root: Path, json_output: bool = False) -
         # CLI found errors - show CLI output directly
         result.add_error(f"Claude CLI: {cli_output.split(chr(10))[0]}")  # First line
         for error in cli_errors:
-            result.add_error(f"  → {error}")
+            result.add_error(f"  => {error}")
 
         # Add fix suggestions (our value-add)
         edge_result = test_source_edge_cases(marketplace_path)
@@ -1294,6 +1389,9 @@ def main():
         total_result.merge(validate_frontmatter_fields(effective_root))
         total_result.merge(validate_scripts(effective_root))
 
+    # Validate plugin.json if it exists
+    total_result.merge(validate_plugin_json(plugin_root))
+
     # ==========================================================================
     # PHASE 3: Best Practices (warnings only)
     # ==========================================================================
@@ -1321,13 +1419,13 @@ def main():
         if total_result.errors:
             print("ERRORS:")
             for e in total_result.errors:
-                print(f"  ❌ {e}")
+                print(f"  [ERROR] {e}")
             print()
 
         if total_result.warnings:
             print("WARNINGS:")
             for w in total_result.warnings:
-                print(f"  ⚠️  {w}")
+                print(f"  [WARN]  {w}")
             print()
 
         print("SUMMARY:")
@@ -1338,11 +1436,11 @@ def main():
         print()
 
         if total_result.errors:
-            print("STATUS: ❌ DEPLOYMENT WILL FAIL")
+            print("STATUS: [ERROR] DEPLOYMENT WILL FAIL")
         elif total_result.warnings:
-            print("STATUS: ⚠️  DEPLOYMENT MAY HAVE ISSUES")
+            print("STATUS: [WARN]  DEPLOYMENT MAY HAVE ISSUES")
         else:
-            print("STATUS: ✅ READY FOR DEPLOYMENT")
+            print("STATUS: [PASS] READY FOR DEPLOYMENT")
 
     # Apply fixes if requested
     if fix_mode and total_result.fixes:
@@ -1350,12 +1448,12 @@ def main():
         print(f"\nFixes applied: {success}, Failed: {fail}")
 
         if not dry_run and success > 0:
-            print("\n💡 Re-run validation to verify fixes:")
+            print("\n[TIP] Re-run validation to verify fixes:")
             print(f"   python3 {sys.argv[0]}")
     elif fix_mode and not total_result.fixes:
-        print("\n✨ Nothing to fix!")
+        print("\n[OK] Nothing to fix!")
     elif total_result.fixes and not json_output:
-        print(f"\n💡 {len(total_result.fixes)} issues can be auto-fixed. Run with --fix:")
+        print(f"\n[TIP] {len(total_result.fixes)} issues can be auto-fixed. Run with --fix:")
         print(f"   python3 {sys.argv[0]} --fix")
         print(f"   python3 {sys.argv[0]} --fix --dry-run  # Preview only")
 
