@@ -540,6 +540,93 @@ def validate_frontmatter_fields(plugin_root: Path) -> ValidationResult:
     return result
 
 
+def validate_marketplace_schema(data: dict, marketplace_path: Path) -> ValidationResult:
+    """Validate marketplace.json follows the official schema structure."""
+    result = ValidationResult()
+
+    # Required root fields
+    if "name" not in data:
+        result.add_error("marketplace.json missing required field: 'name'")
+    else:
+        name = data["name"]
+        # Check for reserved names
+        reserved_names = [
+            "claude-code-marketplace", "claude-code-plugins", "claude-plugins-official",
+            "anthropic-marketplace", "anthropic-plugins", "agent-skills", "life-sciences"
+        ]
+        if name in reserved_names:
+            result.add_error(f"marketplace name '{name}' is reserved and cannot be used")
+        elif not name.replace("-", "").replace("_", "").isalnum():
+            result.add_warning(f"marketplace name '{name}' should use kebab-case (alphanumeric and hyphens)")
+        else:
+            result.add_pass(f"marketplace name '{name}' is valid")
+
+    if "owner" not in data:
+        result.add_error("marketplace.json missing required field: 'owner'")
+    else:
+        owner = data["owner"]
+        if not isinstance(owner, dict):
+            result.add_error("'owner' must be an object")
+        elif "name" not in owner:
+            result.add_error("'owner' missing required field: 'name'")
+        else:
+            result.add_pass("owner field is valid")
+            if "email" not in owner:
+                result.add_warning("'owner.email' is recommended for contact information")
+
+    if "plugins" not in data:
+        result.add_error("marketplace.json missing required field: 'plugins'")
+    elif not isinstance(data["plugins"], list):
+        result.add_error("'plugins' must be an array")
+    elif len(data["plugins"]) == 0:
+        result.add_warning("'plugins' array is empty - no plugins defined")
+    else:
+        result.add_pass(f"plugins array contains {len(data['plugins'])} plugin(s)")
+
+    # Check for old schema format (description/version at root level)
+    if "description" in data and "metadata" not in data:
+        result.add_warning(
+            "'description' at root level is deprecated. Move to 'metadata.description'",
+            Fix("Move description to metadata", _fix_move_to_metadata, marketplace_path, "description")
+        )
+    if "version" in data and "metadata" not in data:
+        result.add_warning(
+            "'version' at root level is deprecated. Move to 'metadata.version'",
+            Fix("Move version to metadata", _fix_move_to_metadata, marketplace_path, "version")
+        )
+
+    # Validate metadata if present
+    if "metadata" in data:
+        metadata = data["metadata"]
+        if not isinstance(metadata, dict):
+            result.add_error("'metadata' must be an object")
+        else:
+            if "description" in metadata:
+                result.add_pass("metadata.description is set")
+            if "version" in metadata:
+                result.add_pass(f"metadata.version is '{metadata['version']}'")
+
+    # Validate each plugin entry
+    for i, plugin in enumerate(data.get("plugins", [])):
+        if "name" not in plugin:
+            result.add_error(f"plugins[{i}] missing required field: 'name'")
+        if "source" not in plugin:
+            result.add_error(f"plugins[{i}] missing required field: 'source'")
+
+    return result
+
+
+def _fix_move_to_metadata(marketplace_path: Path, field: str):
+    """Move a field from root level to metadata object."""
+    data = json.loads(marketplace_path.read_text(encoding='utf-8'))
+
+    if field in data:
+        if "metadata" not in data:
+            data["metadata"] = {}
+        data["metadata"][field] = data.pop(field)
+        marketplace_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding='utf-8')
+
+
 def validate_source_path(plugin_data: dict, marketplace_path: Path, plugin_idx: int) -> ValidationResult:
     """Validate source path format."""
     result = ValidationResult()
@@ -691,6 +778,9 @@ def main():
 
     # Run all validations
     total_result = ValidationResult()
+
+    # Marketplace schema validation
+    total_result.merge(validate_marketplace_schema(data, marketplace_path))
 
     # Settings.json validation
     total_result.merge(validate_settings_json())

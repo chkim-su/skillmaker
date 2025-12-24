@@ -1,11 +1,15 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "skillmaker-marketplace",
-  "description": "Skillmaker: Create perfect skills and subagents that use them with isolated context",
-  "version": "2.0.0",
   "owner": {
-    "name": "Chanho KIM"
+    "name": "Chanho KIM",
+    "email": "chkim@example.com"
   },
-  "homepage": "https://github.com/chkim-su/skillmaker",
+  "metadata": {
+    "description": "Skillmaker: Create perfect skills and subagents that use them with isolated context",
+    "version": "2.0.0",
+    "homepage": "https://github.com/chkim-su/skillmaker"
+  },
   "plugins": [
     {
       "name": "skillmaker",
