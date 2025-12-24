@@ -1,152 +1,150 @@
 ---
-description: Guided entry point for all skillmaker workflows. Asks what you want to create and routes to the appropriate command.
-argument-hint: ""
-allowed-tools: ["SlashCommand", "Glob", "Read"]
+description: Create skills, agents, or commands with smart routing
+argument-hint: "describe what to create (e.g., 'API skill', 'database agent')"
+allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob", "Task", "Skill", "AskUserQuestion"]
 ---
 
-# Skillmaker Wizard
+# Routing
 
-Unified entry point that guides users to the right workflow through simple questions.
+Analyze input. Match first pattern:
 
-## Step 1: Determine Intent
-
-Ask the user:
-
-```
-What would you like to do?
-
-1. Create a skill (reusable knowledge or automation)
-2. Create an agent (isolated context + skills)
-3. Create a command (orchestrate agents)
-4. Validate for deployment
-
-Enter number (1-4):
-```
-
-**Route based on answer:**
-
-| Choice | Next Step |
-|--------|-----------|
-| 1 | Go to Step 2 (Skill creation) |
-| 2 | Go to Step 3 (Agent creation) |
-| 3 | Go to Step 4 (Command creation) |
-| 4 | Go to Step 5 (Validation) |
+| Pattern | Route |
+|---------|-------|
+| `skill.*create\|create.*skill\|스킬.*만들` | → SKILL |
+| `convert\|from.*code\|skillization\|변환` | → SKILL_FROM_CODE |
+| `agent\|에이전트\|subagent` | → AGENT |
+| `command\|workflow\|명령어` | → COMMAND |
+| `validate\|check\|검증` | → VALIDATE |
+| no match / empty | → MENU |
 
 ---
 
-## Step 2: Skill Creation Branch
+# MENU
 
-Ask:
-
+```yaml
+AskUserQuestion:
+  question: "What to create?"
+  header: "Type"
+  options:
+    - label: "Skill"
+    - label: "Agent"
+    - label: "Command"
+    - label: "Validate"
 ```
-How do you want to create the skill?
 
-1. From scratch (new idea, guidelines, or automation)
-2. From existing code (convert working code to reusable skill)
-
-Enter number (1-2):
-```
-
-**Route:**
-
-| Choice | Action |
-|--------|--------|
-| 1 | Use SlashCommand: `/skillmaker:skill-new` |
-| 2 | Ask: "What code/functionality to convert?" then use SlashCommand: `/skillmaker:skillization [target]` |
+Route: Skill→SKILL, Agent→AGENT, Command→COMMAND, Validate→VALIDATE
 
 ---
 
-## Step 3: Agent Creation Branch
+# SKILL
 
-First, check if skills exist:
+1. Load skill: `skill-design`
 
-```
-Glob: .claude/skills/*/SKILL.md
-```
-
-**If no skills found:**
-```
-No skills found in .claude/skills/
-
-You need skills before creating an agent.
-Would you like to create a skill first? (yes/no)
-```
-- Yes → Go to Step 2
-- No → End
-
-**If skills exist:**
-```
-Found {n} skill(s). Ready to create an agent that uses them.
-
-Describe what this agent should do:
+2. Ask type:
+```yaml
+AskUserQuestion:
+  question: "Skill type?"
+  header: "Type"
+  options:
+    - label: "Knowledge"
+      description: "Guidelines, high freedom"
+    - label: "Hybrid"
+      description: "Guidance + scripts"
+    - label: "Tool"
+      description: "Script-driven, low freedom"
+    - label: "Unsure"
 ```
 
-Then use SlashCommand: `/skillmaker:skill-cover [user's description]`
+3. If "Unsure": ask freedom level (High→Knowledge, Medium→Hybrid, Low→Tool)
+
+4. Launch:
+```
+Task: skill-architect
+Pass: description, skill_type
+```
 
 ---
 
-## Step 4: Command Creation Branch
+# SKILL_FROM_CODE
 
-First, check if agents exist:
-
+1. If no path specified:
+```yaml
+AskUserQuestion:
+  question: "Target type?"
+  header: "Target"
+  options:
+    - label: "File"
+    - label: "Directory"
+    - label: "Pattern"
 ```
-Glob: .claude/agents/*.md
-```
+Then ask for path.
 
-**If no agents found:**
-```
-No agents found in .claude/agents/
+2. Load skill: `skill-design`
 
-You need agents before creating commands.
-Would you like to create an agent first? (yes/no)
+3. Launch:
 ```
-- Yes → Go to Step 3
-- No → End
-
-**If agents exist:**
+Task: skill-converter
+Pass: target_path, description
 ```
-Found {n} agent(s). Ready to create a command workflow.
-
-Describe what workflow this command should execute:
-```
-
-Then use SlashCommand: `/skillmaker:command-maker [user's description]`
 
 ---
 
-## Step 5: Validation Branch
+# AGENT
 
-Use SlashCommand: `/skillmaker:deploy-checker`
+1. Check: `Glob .claude/skills/*/SKILL.md`
+
+2. If none: "No skills found. Create skill first?" → Yes: goto SKILL
+
+3. List skills, ask selection:
+```yaml
+AskUserQuestion:
+  question: "Which skills?"
+  header: "Skills"
+  multiSelect: true
+  options: [discovered skills]
+```
+
+4. Load skill: `orchestration-patterns`
+
+5. Launch:
+```
+Task: skill-orchestrator-designer
+Pass: selected_skills, description
+```
 
 ---
 
-## Quick Reference
+# COMMAND
 
-For users who know what they want:
+1. Check: `Glob .claude/agents/*.md`
 
-| Direct Command | Purpose |
-|----------------|---------|
-| `/skillmaker:skill-new [desc]` | Create skill from scratch |
-| `/skillmaker:skillization [code]` | Convert existing code |
-| `/skillmaker:skill-cover [purpose]` | Create skill-using agent |
-| `/skillmaker:command-maker [workflow]` | Create agent-orchestrating command |
-| `/skillmaker:deploy-checker` | Validate before deployment |
+2. If none: "No agents found. Create agent first?" → Yes: goto AGENT
+
+3. List agents, ask selection:
+```yaml
+AskUserQuestion:
+  question: "Which agents?"
+  header: "Agents"
+  multiSelect: true
+```
+
+4. Ask flow:
+```yaml
+AskUserQuestion:
+  question: "Coordination?"
+  header: "Flow"
+  options:
+    - label: "Sequential"
+    - label: "Parallel"
+    - label: "Conditional"
+```
+
+5. Write `.claude/commands/{name}.md` with selected agents and flow pattern.
 
 ---
 
-## Flow Diagram
+# VALIDATE
 
-```
-/skillmaker:wizard
-       │
-       ├─[1] Skill ─┬─[1] New ────→ /skillmaker:skill-new
-       │            └─[2] Convert ─→ /skillmaker:skillization
-       │
-       ├─[2] Agent ─────────────────→ /skillmaker:skill-cover
-       │     └─(needs skills first)
-       │
-       ├─[3] Command ───────────────→ /skillmaker:command-maker
-       │     └─(needs agents first)
-       │
-       └─[4] Validate ──────────────→ /skillmaker:deploy-checker
-```
+1. Run: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py`
+
+2. If errors, offer: "Auto-fix?" → Yes: run with `--fix`

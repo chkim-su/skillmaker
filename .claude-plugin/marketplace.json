@@ -1,7 +1,7 @@
 {
   "name": "skillmaker-marketplace",
   "description": "Skillmaker: Create perfect skills and subagents that use them with isolated context",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "owner": {
     "name": "Chanho KIM"
   },
@@ -11,7 +11,7 @@
       "name": "skillmaker",
       "description": "Create perfect skills and subagents that use them explicitly. Solve the context window problem with skill-based architecture.",
       "source": "./",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "author": {
         "name": "Chanho KIM"
       },
@@ -22,12 +22,7 @@
         "./skills/orchestration-patterns"
       ],
       "commands": [
-        "./commands/wizard.md",
-        "./commands/skill-new.md",
-        "./commands/skillization.md",
-        "./commands/skill-cover.md",
-        "./commands/command-maker.md",
-        "./commands/deploy-checker.md"
+        "./commands/wizard.md"
       ],
       "agents": [
         "./agents/skill-architect.md",
