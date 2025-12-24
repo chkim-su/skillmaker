@@ -36,6 +36,82 @@ except ImportError:
     # Fallback: simple YAML parser for frontmatter
     yaml = None
 
+import re
+
+# =============================================================================
+# SCHEMA DEFINITIONS - Static validation rules
+# =============================================================================
+
+# Error codes for precise identification
+class ErrorCode:
+    E001 = "E001"  # Components inside .claude-plugin
+    E002 = "E002"  # Skill has .md extension
+    E003 = "E003"  # Command missing .md extension
+    E004 = "E004"  # Agent missing .md extension
+    E005 = "E005"  # source is string "github"/"url" (should be object)
+    E006 = "E006"  # source uses "type" key instead of "source"
+    E007 = "E007"  # repo at plugin level (should be in source object)
+    E008 = "E008"  # repository is object (should be string)
+    E009 = "E009"  # Missing SKILL.md in skill directory
+    E010 = "E010"  # Agent missing required "tools" field
+    E011 = "E011"  # Path doesn't start with ./
+    E012 = "E012"  # File/directory not found
+    E013 = "E013"  # Unrecognized field in schema
+    E014 = "E014"  # Missing required field
+    E015 = "E015"  # Invalid name format (not kebab-case)
+
+
+# Schema patterns (regex)
+SCHEMA = {
+    "kebab_case": re.compile(r"^[a-z][a-z0-9]*(-[a-z0-9]+)*$"),
+    "relative_path": re.compile(r"^\./"),
+    "md_extension": re.compile(r"\.md$"),
+    "json_extension": re.compile(r"\.json$"),
+    "semver": re.compile(r"^\d+\.\d+\.\d+"),
+    "repo_format": re.compile(r"^[^/]+/[^/]+$"),
+    "url_format": re.compile(r"^https?://"),
+}
+
+# Allowed fields per schema type
+ALLOWED_FIELDS = {
+    "marketplace": {"$schema", "name", "owner", "plugins", "description", "version", "homepage", "metadata"},
+    "owner": {"name", "email", "url"},
+    "metadata": {"description", "version", "pluginRoot"},
+    "plugin": {
+        "name", "source", "description", "version", "author", "homepage",
+        "repository", "license", "keywords", "category", "tags", "strict",
+        "commands", "agents", "skills", "hooks", "mcpServers", "lspServers"
+    },
+    "author": {"name", "email"},
+    "plugin_json": {"name", "version", "description", "author", "repository", "homepage", "license", "keywords", "category", "tags"},
+}
+
+# Required fields per schema type
+REQUIRED_FIELDS = {
+    "marketplace": {"name", "owner", "plugins"},
+    "owner": {"name"},
+    "plugin": {"name", "source"},
+    "agent_frontmatter": {"name", "description", "tools"},
+    "command_frontmatter": {"description"},
+    "skill_frontmatter": {"name", "description"},
+}
+
+# Forbidden fields (common mistakes)
+FORBIDDEN_FIELDS = {
+    "plugin": {"components", "repo"},  # components not valid, repo should be in source
+}
+
+# Reserved marketplace names
+RESERVED_NAMES = {
+    "claude-code-marketplace", "claude-plugins-official", "anthropic-marketplace",
+    "anthropic-plugins", "claude-code-plugins", "agent-skills", "life-sciences"
+}
+
+
+def format_error(code: str, message: str) -> str:
+    """Format error with code for easy identification."""
+    return f"[{code}] {message}"
+
 
 class Fix:
     """Represents a fixable issue."""
@@ -323,6 +399,408 @@ def fix_plugin_json_schema(plugin_json_path: Path):
         data["repository"] = url
 
     plugin_json_path.write_text(json.dumps(data, indent=2) + "\n")
+
+
+def fix_move_component_to_root(plugin_root: Path, component_type: str):
+    """Move component directory from .claude-plugin/ to plugin root."""
+    import shutil
+
+    wrong_dir = plugin_root / ".claude-plugin" / component_type
+    correct_dir = plugin_root / component_type
+
+    if not wrong_dir.exists():
+        return
+
+    if correct_dir.exists():
+        # Merge: move files from wrong to correct
+        for item in wrong_dir.iterdir():
+            target = correct_dir / item.name
+            if not target.exists():
+                shutil.move(str(item), str(target))
+        # Remove empty wrong dir
+        if not list(wrong_dir.iterdir()):
+            wrong_dir.rmdir()
+    else:
+        # Simple move
+        shutil.move(str(wrong_dir), str(correct_dir))
+
+
+def fix_skill_structure(plugin_root: Path, skill_path: str):
+    """Convert skill .md file to directory/SKILL.md structure.
+
+    Before: skills/my-skill.md (file)
+    After:  skills/my-skill/SKILL.md (directory with file)
+    """
+    # Normalize path
+    normalized = skill_path.lstrip("./")
+    full_path = plugin_root / normalized
+
+    # If it's a .md file, convert to directory structure
+    if full_path.exists() and full_path.is_file() and full_path.suffix == ".md":
+        # Read content
+        content = full_path.read_text(encoding='utf-8')
+
+        # Create directory (remove .md extension)
+        dir_path = full_path.with_suffix("")
+        dir_path.mkdir(parents=True, exist_ok=True)
+
+        # Write content to SKILL.md
+        skill_md = dir_path / "SKILL.md"
+        skill_md.write_text(content)
+
+        # Remove original .md file
+        full_path.unlink()
+
+    # Also check in .claude-plugin/ location
+    wrong_path = plugin_root / ".claude-plugin" / normalized
+    if wrong_path.exists() and wrong_path.is_file() and wrong_path.suffix == ".md":
+        content = wrong_path.read_text(encoding='utf-8')
+
+        # Create correct directory at root
+        dir_name = wrong_path.stem  # filename without .md
+        correct_dir = plugin_root / "skills" / dir_name
+        correct_dir.mkdir(parents=True, exist_ok=True)
+
+        skill_md = correct_dir / "SKILL.md"
+        skill_md.write_text(content)
+
+        wrong_path.unlink()
+
+
+def fix_skills_complete(plugin_root: Path):
+    """Complete fix for skills: move from .claude-plugin/ to root and convert .md to directory structure.
+
+    Handles:
+    1. Move .claude-plugin/skills/ to ./skills/
+    2. Convert any .md files to directory/SKILL.md structure
+    3. Update marketplace.json paths
+    """
+    import shutil
+
+    wrong_dir = plugin_root / ".claude-plugin" / "skills"
+    correct_dir = plugin_root / "skills"
+
+    if not wrong_dir.exists():
+        return
+
+    # Create skills directory at root if needed
+    correct_dir.mkdir(parents=True, exist_ok=True)
+
+    # Process each item in wrong_dir
+    for item in list(wrong_dir.iterdir()):
+        if item.is_file() and item.suffix == ".md":
+            # Convert .md file to directory/SKILL.md
+            skill_name = item.stem
+            target_dir = correct_dir / skill_name
+            target_dir.mkdir(parents=True, exist_ok=True)
+
+            content = item.read_text(encoding='utf-8')
+            skill_md = target_dir / "SKILL.md"
+            skill_md.write_text(content)
+
+            item.unlink()
+        elif item.is_dir():
+            # Move directory as-is
+            target = correct_dir / item.name
+            if not target.exists():
+                shutil.move(str(item), str(target))
+
+    # Remove empty wrong_dir
+    if wrong_dir.exists() and not list(wrong_dir.iterdir()):
+        wrong_dir.rmdir()
+
+    # Update marketplace.json paths
+    marketplace_path = plugin_root / ".claude-plugin" / "marketplace.json"
+    if marketplace_path.exists():
+        data = json.loads(marketplace_path.read_text(encoding='utf-8'))
+        for plugin in data.get("plugins", [data]):
+            skills = plugin.get("skills", [])
+            updated_skills = []
+            for skill in skills:
+                # Remove .md extension if present
+                if skill.endswith(".md"):
+                    skill = skill[:-3]  # Remove .md
+                updated_skills.append(skill)
+            if skills:
+                plugin["skills"] = updated_skills
+        marketplace_path.write_text(json.dumps(data, indent=2) + "\n")
+
+
+# ============================================================================
+# SCHEMA-BASED STATIC VALIDATION (Primary validation layer)
+# ============================================================================
+
+def validate_schema_static(plugin_root: Path, marketplace_path: Path) -> ValidationResult:
+    """
+    Static schema validation - catches errors at parse time.
+    This is the PRIMARY validation layer that runs before any file I/O checks.
+    """
+    result = ValidationResult()
+
+    if not marketplace_path.exists():
+        result.add_error(format_error(ErrorCode.E014, "marketplace.json not found"))
+        return result
+
+    try:
+        data = json.loads(marketplace_path.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as e:
+        result.add_error(format_error(ErrorCode.E014, f"Invalid JSON: {e}"))
+        return result
+
+    # -------------------------------------------------------------------------
+    # 1. MARKETPLACE ROOT VALIDATION
+    # -------------------------------------------------------------------------
+
+    # Check required fields
+    for field in REQUIRED_FIELDS["marketplace"]:
+        if field not in data:
+            result.add_error(format_error(ErrorCode.E014, f"Missing required field: '{field}'"))
+
+    # Check unrecognized fields
+    unrecognized = set(data.keys()) - ALLOWED_FIELDS["marketplace"]
+    if unrecognized:
+        result.add_error(format_error(
+            ErrorCode.E013,
+            f"Unrecognized field(s) at marketplace root: {', '.join(sorted(unrecognized))}"
+        ))
+
+    # Validate name format
+    name = data.get("name", "")
+    if name:
+        if name.lower() in RESERVED_NAMES:
+            result.add_error(format_error(ErrorCode.E015, f"Reserved name: '{name}'"))
+        elif " " in name:
+            result.add_error(format_error(ErrorCode.E015, f"Name contains spaces: '{name}' (use kebab-case)"))
+        elif not SCHEMA["kebab_case"].match(name) and name not in RESERVED_NAMES:
+            result.add_warning(f"Name '{name}' is not kebab-case (recommended: lowercase-with-hyphens)")
+    else:
+        result.add_error(format_error(ErrorCode.E014, "Missing 'name' field"))
+
+    # Validate owner
+    owner = data.get("owner")
+    if owner:
+        if not isinstance(owner, dict):
+            result.add_error(format_error(ErrorCode.E014, "'owner' must be an object"))
+        else:
+            if "name" not in owner:
+                result.add_error(format_error(ErrorCode.E014, "owner.name is required"))
+            unrecognized_owner = set(owner.keys()) - ALLOWED_FIELDS["owner"]
+            if unrecognized_owner:
+                result.add_error(format_error(ErrorCode.E013, f"Unrecognized owner field(s): {unrecognized_owner}"))
+
+    # -------------------------------------------------------------------------
+    # 2. PLUGIN ENTRIES VALIDATION
+    # -------------------------------------------------------------------------
+
+    plugins = data.get("plugins", [])
+    if not isinstance(plugins, list):
+        result.add_error(format_error(ErrorCode.E014, "'plugins' must be an array"))
+        return result
+
+    if len(plugins) == 0:
+        result.add_error(format_error(ErrorCode.E014, "'plugins' array is empty"))
+        return result
+
+    for i, plugin in enumerate(plugins):
+        prefix = f"plugins[{i}]"
+
+        if not isinstance(plugin, dict):
+            result.add_error(format_error(ErrorCode.E014, f"{prefix} must be an object"))
+            continue
+
+        # Check required fields
+        for field in REQUIRED_FIELDS["plugin"]:
+            if field not in plugin:
+                result.add_error(format_error(ErrorCode.E014, f"{prefix}.{field} is required"))
+
+        # Check unrecognized fields
+        unrecognized_plugin = set(plugin.keys()) - ALLOWED_FIELDS["plugin"]
+        if unrecognized_plugin:
+            result.add_error(format_error(
+                ErrorCode.E013,
+                f"{prefix}: Unrecognized field(s): {', '.join(sorted(unrecognized_plugin))}"
+            ))
+
+        # Check forbidden fields
+        for forbidden in FORBIDDEN_FIELDS["plugin"]:
+            if forbidden in plugin:
+                if forbidden == "repo":
+                    result.add_error(
+                        format_error(ErrorCode.E007,
+                            f'{prefix}.repo is at plugin level. '
+                            f'Move into source: "source": {{"source": "github", "repo": "..."}}'),
+                        Fix(f"Fix {prefix} GitHub source format",
+                            fix_github_source_format, marketplace_path, i)
+                    )
+                elif forbidden == "components":
+                    result.add_error(format_error(
+                        ErrorCode.E013,
+                        f'{prefix}.components is not valid. Use commands/agents/skills arrays.'
+                    ))
+
+        # Validate source format
+        source = plugin.get("source")
+        if source is not None:
+            result.merge(validate_source_schema(source, prefix, marketplace_path, i))
+
+        # Validate path arrays
+        result.merge(validate_path_arrays(plugin, prefix, marketplace_path))
+
+        # Validate repository format
+        if "repository" in plugin:
+            repo = plugin["repository"]
+            if isinstance(repo, dict):
+                result.add_error(
+                    format_error(ErrorCode.E008,
+                        f'{prefix}.repository must be string URL, not object'),
+                    Fix(f"Fix {prefix}.repository format",
+                        fix_repository_to_string, marketplace_path, i)
+                )
+
+    return result
+
+
+def validate_source_schema(source: Any, prefix: str, marketplace_path: Path, plugin_idx: int) -> ValidationResult:
+    """Validate source field format according to schema."""
+    result = ValidationResult()
+
+    if source is None or source == "":
+        result.add_error(format_error(ErrorCode.E014, f"{prefix}.source is empty/null"))
+        return result
+
+    if isinstance(source, str):
+        # String source: must start with ./ or be a path
+        if source in ["github", "url"]:
+            result.add_error(
+                format_error(ErrorCode.E005,
+                    f'{prefix}.source is "{source}" but must be object. '
+                    f'Use: "source": {{"source": "{source}", "repo": "owner/repo"}}'),
+                Fix(f"Fix {prefix} source format",
+                    fix_github_source_format, marketplace_path, plugin_idx)
+            )
+        elif source == ".":
+            result.add_error(
+                format_error(ErrorCode.E011,
+                    f'{prefix}.source is "." but must be "./"'),
+                Fix(f"Fix {prefix}.source to './'",
+                    fix_source_path, marketplace_path, plugin_idx, "./")
+            )
+        elif not SCHEMA["relative_path"].match(source):
+            result.add_error(
+                format_error(ErrorCode.E011,
+                    f'{prefix}.source "{source}" must start with "./"'),
+                Fix(f"Fix {prefix}.source path",
+                    fix_source_path, marketplace_path, plugin_idx, f"./{source}")
+            )
+
+    elif isinstance(source, dict):
+        # Object source: validate structure
+        if "type" in source and "source" not in source:
+            result.add_error(
+                format_error(ErrorCode.E006,
+                    f'{prefix}.source uses "type" key. Must use "source" key. '
+                    f'Correct: {{"source": "github", "repo": "..."}}')
+            )
+        elif "source" not in source:
+            result.add_error(format_error(ErrorCode.E014, f'{prefix}.source object missing "source" key'))
+        else:
+            source_type = source.get("source")
+            if source_type == "github":
+                if "repo" not in source:
+                    result.add_error(format_error(ErrorCode.E014,
+                        f'{prefix}.source.repo is required for GitHub source'))
+                elif not SCHEMA["repo_format"].match(str(source.get("repo", ""))):
+                    result.add_error(format_error(ErrorCode.E015,
+                        f'{prefix}.source.repo must be "owner/repo" format'))
+            elif source_type == "url":
+                if "url" not in source:
+                    result.add_error(format_error(ErrorCode.E014,
+                        f'{prefix}.source.url is required for URL source'))
+                elif not SCHEMA["url_format"].match(str(source.get("url", ""))):
+                    result.add_error(format_error(ErrorCode.E015,
+                        f'{prefix}.source.url must be http:// or https://'))
+            elif source_type not in ["github", "url"]:
+                result.add_error(format_error(ErrorCode.E015,
+                    f'{prefix}.source.source must be "github" or "url", got "{source_type}"'))
+    else:
+        result.add_error(format_error(ErrorCode.E014,
+            f'{prefix}.source must be string or object, got {type(source).__name__}'))
+
+    return result
+
+
+def validate_path_arrays(plugin: dict, prefix: str, marketplace_path: Path) -> ValidationResult:
+    """Validate commands/agents/skills/hooks path format."""
+    result = ValidationResult()
+
+    # Commands: must be .md files
+    for i, cmd in enumerate(plugin.get("commands", [])):
+        if not isinstance(cmd, str):
+            result.add_error(format_error(ErrorCode.E014, f"{prefix}.commands[{i}] must be string"))
+            continue
+        if not SCHEMA["relative_path"].match(cmd):
+            result.add_error(format_error(ErrorCode.E011, f'{prefix}.commands[{i}] "{cmd}" must start with "./"'))
+        if not SCHEMA["md_extension"].search(cmd):
+            correct = cmd + ".md"
+            result.add_error(
+                format_error(ErrorCode.E003, f'{prefix}.commands[{i}] "{cmd}" must end with .md'),
+                Fix(f'Fix path to "{correct}"', fix_path_format, marketplace_path, "commands", cmd, correct)
+            )
+
+    # Agents: must be .md files
+    for i, agent in enumerate(plugin.get("agents", [])):
+        if not isinstance(agent, str):
+            result.add_error(format_error(ErrorCode.E014, f"{prefix}.agents[{i}] must be string"))
+            continue
+        if not SCHEMA["relative_path"].match(agent):
+            result.add_error(format_error(ErrorCode.E011, f'{prefix}.agents[{i}] "{agent}" must start with "./"'))
+        if not SCHEMA["md_extension"].search(agent):
+            correct = agent + ".md"
+            result.add_error(
+                format_error(ErrorCode.E004, f'{prefix}.agents[{i}] "{agent}" must end with .md'),
+                Fix(f'Fix path to "{correct}"', fix_path_format, marketplace_path, "agents", agent, correct)
+            )
+
+    # Skills: must NOT be .md files (they are directories)
+    for i, skill in enumerate(plugin.get("skills", [])):
+        if not isinstance(skill, str):
+            result.add_error(format_error(ErrorCode.E014, f"{prefix}.skills[{i}] must be string"))
+            continue
+        if not SCHEMA["relative_path"].match(skill):
+            result.add_error(format_error(ErrorCode.E011, f'{prefix}.skills[{i}] "{skill}" must start with "./"'))
+        if SCHEMA["md_extension"].search(skill):
+            correct = skill.replace(".md", "").rstrip("/")
+            result.add_error(
+                format_error(ErrorCode.E002,
+                    f'{prefix}.skills[{i}] "{skill}" has .md extension. '
+                    f'Skills are directories, not files.'),
+                Fix(f'Fix path to "{correct}"', fix_path_format, marketplace_path, "skills", skill, correct)
+            )
+
+    # Hooks: must be .json files
+    for i, hook in enumerate(plugin.get("hooks", [])):
+        if not isinstance(hook, str):
+            result.add_error(format_error(ErrorCode.E014, f"{prefix}.hooks[{i}] must be string"))
+            continue
+        if not SCHEMA["relative_path"].match(hook):
+            result.add_error(format_error(ErrorCode.E011, f'{prefix}.hooks[{i}] "{hook}" must start with "./"'))
+
+    return result
+
+
+def fix_repository_to_string(marketplace_path: Path, plugin_idx: int):
+    """Convert repository object to string URL."""
+    data = json.loads(marketplace_path.read_text(encoding='utf-8'))
+    plugins = data.get("plugins", [data])
+
+    if plugin_idx < len(plugins):
+        plugin = plugins[plugin_idx]
+        repo = plugin.get("repository", {})
+        if isinstance(repo, dict):
+            url = repo.get("url", "")
+            plugin["repository"] = url
+
+    marketplace_path.write_text(json.dumps(data, indent=2) + "\n")
 
 
 # ============================================================================
@@ -1200,6 +1678,139 @@ def test_source_edge_cases(marketplace_path: Path) -> ValidationResult:
     return result
 
 
+def validate_component_locations(plugin_root: Path, marketplace_path: Path) -> ValidationResult:
+    """
+    Validate that registered component paths actually exist from plugin root.
+
+    Claude Code plugin structure requires:
+    - Components (commands, agents, skills, hooks) MUST be at plugin ROOT level
+    - Components must NOT be nested inside .claude-plugin/ directory
+
+    This catches the common mistake of putting components inside .claude-plugin/
+    """
+    result = ValidationResult()
+
+    if not marketplace_path.exists():
+        return result
+
+    try:
+        data = json.loads(marketplace_path.read_text(encoding='utf-8'))
+    except:
+        return result
+
+    plugins = data.get("plugins", [data])
+
+    for i, plugin in enumerate(plugins):
+        source = plugin.get("source", "./")
+
+        # Determine effective root for this plugin
+        if isinstance(source, dict):
+            effective_root = plugin_root
+        elif source in [".", "./"]:
+            effective_root = plugin_root
+        elif isinstance(source, str) and source.startswith("./"):
+            effective_root = plugin_root / source.lstrip("./")
+        else:
+            effective_root = plugin_root
+
+        # Check each registered component
+        for component_type in ["commands", "agents", "skills", "hooks"]:
+            items = plugin.get(component_type, [])
+            if isinstance(items, str):
+                items = [items]
+
+            for item_path in items:
+                if not isinstance(item_path, str):
+                    continue
+
+                # Normalize path
+                normalized = item_path.lstrip("./")
+                full_path = effective_root / normalized
+
+                # Check if file/directory exists
+                if not full_path.exists():
+                    # Check if it exists in .claude-plugin/ (common mistake)
+                    wrong_location = effective_root / ".claude-plugin" / normalized
+                    if wrong_location.exists():
+                        # E001: Component in wrong location (fix added at directory level below)
+                        result.add_error(format_error(
+                            ErrorCode.E001,
+                            f'{component_type}: "{item_path}" found inside .claude-plugin/'
+                        ))
+                    else:
+                        result.add_error(format_error(
+                            ErrorCode.E012,
+                            f'{component_type}: "{item_path}" not found at {full_path}'
+                        ))
+                else:
+                    # Validate the item is the correct type
+                    if component_type == "skills":
+                        # Skills should be directories with SKILL.md
+                        if full_path.is_file():
+                            # E002: Skill is a file, needs conversion to directory
+                            result.add_error(
+                                format_error(
+                                    ErrorCode.E002,
+                                    f'skills: "{item_path}" is a file, converting to directory/SKILL.md'
+                                ),
+                                Fix(f'Convert {item_path} to directory structure',
+                                    fix_skill_structure, plugin_root, item_path)
+                            )
+                        elif not (full_path / "SKILL.md").exists():
+                            result.add_error(format_error(
+                                ErrorCode.E009,
+                                f'skills: "{item_path}" directory exists but missing SKILL.md'
+                            ))
+                        else:
+                            result.add_pass(f'skills: "{item_path}" structure valid')
+                    else:
+                        # Commands, agents, hooks should be files
+                        if full_path.is_dir():
+                            result.add_error(format_error(
+                                ErrorCode.E003 if component_type == "commands" else ErrorCode.E004,
+                                f'{component_type}: "{item_path}" is a directory but {component_type} must be .md files'
+                            ))
+                        else:
+                            result.add_pass(f'{component_type}: "{item_path}" exists')
+
+    # Check for components inside .claude-plugin that should be at root
+    claude_plugin_dir = plugin_root / ".claude-plugin"
+    fixes_added = set()  # Track which fixes we've added to avoid duplicates
+
+    for component_type in ["commands", "agents", "skills", "hooks"]:
+        wrong_dir = claude_plugin_dir / component_type
+        correct_dir = plugin_root / component_type
+
+        if wrong_dir.exists() and wrong_dir.is_dir():
+            files_in_wrong = list(wrong_dir.iterdir())
+            if files_in_wrong:
+                fix_key = f"move_{component_type}"
+                if fix_key not in fixes_added:
+                    fixes_added.add(fix_key)
+
+                    if component_type == "skills":
+                        # Skills need special handling: move + convert .md to directory
+                        result.add_error(
+                            format_error(
+                                ErrorCode.E001,
+                                f'"{component_type}/" is inside .claude-plugin/, will move and fix structure'
+                            ),
+                            Fix(f'Move and fix .claude-plugin/{component_type}/',
+                                fix_skills_complete, plugin_root)
+                        )
+                    else:
+                        result.add_error(
+                            format_error(
+                                ErrorCode.E001,
+                                f'"{component_type}/" is inside .claude-plugin/, moving to plugin root'
+                            ),
+                            Fix(f'Move .claude-plugin/{component_type}/ to ./{component_type}/',
+                                fix_move_component_to_root, plugin_root, component_type)
+                        )
+
+    return result
+
+
 def validate_against_official_patterns(plugin_root: Path) -> ValidationResult:
     """
     Validate against patterns observed in official Claude Code plugins.
@@ -1344,32 +1955,53 @@ def main():
     total_result = ValidationResult()
 
     # ==========================================================================
-    # PHASE 1: Schema Validation (CLI is authoritative, our code is fallback)
+    # PHASE 0: STATIC SCHEMA VALIDATION (runs FIRST, before all other checks)
+    # ==========================================================================
+    # This catches schema errors immediately at parse time with error codes
+    schema_result = validate_schema_static(plugin_root, marketplace_path)
+    total_result.merge(schema_result)
+
+    # If schema has errors, show them prominently
+    if schema_result.errors:
+        if not json_output:
+            print("=" * 60)
+            print("SCHEMA VALIDATION FAILED")
+            print("=" * 60)
+            print(f"Found {len(schema_result.errors)} schema error(s):")
+            for e in schema_result.errors:
+                print(f"  {e}")
+            print()
+            if schema_result.fixes:
+                print(f"[--fix] {len(schema_result.fixes)} errors can be auto-fixed")
+            print("=" * 60)
+            print()
+
+    # ==========================================================================
+    # PHASE 1: CLI Validation (secondary check, may catch additional issues)
     # ==========================================================================
     cli_success, cli_output, cli_errors = run_claude_cli_validation(plugin_root)
     cli_available = "not found" not in cli_output.lower()
 
     if cli_available:
         if cli_success:
-            total_result.add_pass("Schema validation: passed (Claude CLI)")
+            total_result.add_pass("CLI validation: passed")
         else:
-            # CLI found schema errors - show them
+            # CLI found additional errors - show them (avoid duplicates)
             for error in cli_errors:
-                total_result.add_error(f"Schema: {error}")
-            # Get fix suggestions from our edge case tests
-            edge_result = test_source_edge_cases(marketplace_path)
-            total_result.fixes.extend(edge_result.fixes)
+                error_msg = f"CLI: {error}"
+                if error_msg not in total_result.errors:
+                    total_result.add_error(error_msg)
     else:
-        # CLI not available - use our fallback schema validation
-        total_result.add_warning("Claude CLI not installed - using fallback validation")
-        total_result.merge(validate_marketplace_schema(data, marketplace_path))
-        for i, plugin in enumerate(plugins):
-            total_result.merge(validate_source_path(plugin, marketplace_path, i))
-        total_result.merge(test_source_edge_cases(marketplace_path))
+        # CLI not available - our schema validation already ran
+        total_result.add_warning("Claude CLI not installed (npm install -g @anthropic-ai/claude-code)")
 
     # ==========================================================================
     # PHASE 2: File/Content Validation (our unique checks, not in CLI)
     # ==========================================================================
+
+    # CRITICAL: Check component directory structure first
+    total_result.merge(validate_component_locations(plugin_root, marketplace_path))
+
     total_result.merge(validate_settings_json())
 
     for i, plugin in enumerate(plugins):
@@ -1453,7 +2085,7 @@ def main():
     elif fix_mode and not total_result.fixes:
         print("\n[OK] Nothing to fix!")
     elif total_result.fixes and not json_output:
-        print(f"\n[TIP] {len(total_result.fixes)} issues can be auto-fixed. Run with --fix:")
+        print(f"\n[--fix] {len(total_result.fixes)} errors can be auto-fixed:")
         print(f"   python3 {sys.argv[0]} --fix")
         print(f"   python3 {sys.argv[0]} --fix --dry-run  # Preview only")
 

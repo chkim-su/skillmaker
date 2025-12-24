@@ -368,7 +368,12 @@ AskUserQuestion:
 
 4. If "No": Show testing guide, exit
 
-5. **MANDATORY: Run validation before any changes**:
+5. **Clear Claude Code cache** (if reinstalling):
+```bash
+rm -rf ~/.claude/plugins/cache/{plugin-name}*
+```
+
+6. **MANDATORY: Run validation before any changes**:
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
 ```
