@@ -14,10 +14,13 @@ Analyze input. Match first pattern:
 | `convert\|from.*code\|skillization\|변환` | → SKILL_FROM_CODE |
 | `agent\|에이전트\|subagent` | → AGENT |
 | `command\|workflow\|명령어` | → COMMAND |
-| `validate\|check\|검증` | → VALIDATE |
-| `publish\|deploy\|배포\|마켓` | → PUBLISH |
+| `validate\|check\|검증\|분석\|상태\|status\|analyze` | → VALIDATE |
+| `publish\|deploy\|배포` | → PUBLISH |
 | `register\|local\|등록\|로컬` | → LOCAL_REGISTER |
 | no match / empty | → MENU |
+
+**CRITICAL RULE**: When routing to VALIDATE, you MUST execute the actual validation script.
+DO NOT perform "visual analysis" or "manual inspection" - ALWAYS run the script.
 
 ---
 
@@ -203,9 +206,33 @@ AskUserQuestion:
 
 # VALIDATE
 
-1. Run: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py`
+**⚠️ MANDATORY: You MUST execute the actual validation script. NO exceptions.**
+**DO NOT perform "visual analysis", "manual inspection", or "eye-check". ALWAYS run the script.**
 
-2. If errors, offer: "Auto-fix?" → Yes: run with `--fix`
+1. **ALWAYS execute this command first** (NO SKIPPING):
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
+```
+
+2. **Show the ACTUAL output** from the script to the user.
+   - DO NOT paraphrase or summarize without showing actual output
+   - Include: errors, warnings, passed checks, and summary
+
+3. **If status="fail" (errors exist)**:
+   - Show ALL errors from script output
+   - Ask: "자동 수정을 실행할까요?" (Run auto-fix?)
+   - If yes: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --fix`
+   - Re-run validation and show results
+
+4. **If status="warn" (warnings only)**: Show warnings, explain they won't block deployment
+
+5. **If status="pass"**: Show "✅ 검증 통과 - 배포 준비 완료"
+
+**FORBIDDEN BEHAVIORS:**
+- ❌ Reading files manually and reporting "looks good"
+- ❌ Checking file existence without running the script
+- ❌ Saying "based on previous analysis" without running script NOW
+- ❌ Skipping the script execution for any reason
 
 ---
 
