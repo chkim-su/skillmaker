@@ -606,12 +606,27 @@ def validate_marketplace_schema(data: dict, marketplace_path: Path) -> Validatio
             if "version" in metadata:
                 result.add_pass(f"metadata.version is '{metadata['version']}'")
 
+    # Allowed fields in plugin entries
+    ALLOWED_PLUGIN_FIELDS = {
+        "name", "description", "version", "source", "license", "tags",
+        "commands", "agents", "skills", "hooks", "scripts",
+        "author", "category", "repository", "homepage", "keywords"
+    }
+
     # Validate each plugin entry
     for i, plugin in enumerate(data.get("plugins", [])):
         if "name" not in plugin:
             result.add_error(f"plugins[{i}] missing required field: 'name'")
         if "source" not in plugin:
             result.add_error(f"plugins[{i}] missing required field: 'source'")
+
+        # Check for unrecognized fields
+        unrecognized = set(plugin.keys()) - ALLOWED_PLUGIN_FIELDS
+        if unrecognized:
+            result.add_error(
+                f"plugins[{i}]: Unrecognized key(s): {', '.join(sorted(unrecognized))}. "
+                f"Remove these fields or check schema documentation."
+            )
 
     return result
 
@@ -633,19 +648,36 @@ def validate_source_path(plugin_data: dict, marketplace_path: Path, plugin_idx: 
     source = plugin_data.get("source", "")
 
     if isinstance(source, str):
-        if source and source not in [".", "./"] and not source.startswith("./"):
+        # Check if it looks like a URL (not allowed as string)
+        if source.startswith("http://") or source.startswith("https://"):
+            result.add_error(
+                f'plugins[{plugin_idx}].source: URL strings not allowed. '
+                f'Use relative path "./" or GitHub object {{"type": "github", "repo": "user/repo"}}'
+            )
+        elif source and source not in [".", "./"] and not source.startswith("./"):
             fixed_source = f"./{source}"
             result.add_error(
-                f'source "{source}" must start with "./" (e.g., "{fixed_source}")',
+                f'plugins[{plugin_idx}].source: "{source}" must start with "./" (e.g., "{fixed_source}")',
                 Fix(f'Fix source path to "{fixed_source}"', fix_source_path, marketplace_path, plugin_idx, fixed_source)
             )
         else:
             result.add_pass("source path format valid")
     elif isinstance(source, dict):
-        if "source" not in source or "repo" not in source:
-            result.add_error('GitHub source format requires {"source": "github", "repo": "user/repo"}')
-        else:
-            result.add_pass("GitHub source format valid")
+        # Check for correct GitHub source format: {"type": "github", "repo": "user/repo"}
+        if "type" not in source:
+            result.add_error(f'plugins[{plugin_idx}].source: GitHub object requires "type" field')
+        elif source.get("type") != "github":
+            result.add_error(f'plugins[{plugin_idx}].source.type: Only "github" is supported')
+
+        if "repo" not in source:
+            result.add_error(f'plugins[{plugin_idx}].source: GitHub object requires "repo" field (e.g., "user/repo")')
+        elif not isinstance(source.get("repo"), str) or "/" not in source.get("repo", ""):
+            result.add_error(f'plugins[{plugin_idx}].source.repo: Must be in format "owner/repository"')
+
+        if "type" in source and source.get("type") == "github" and "repo" in source:
+            result.add_pass(f"GitHub source format valid: {source.get('repo')}")
+    else:
+        result.add_error(f'plugins[{plugin_idx}].source: Must be string or object, got {type(source).__name__}')
 
     return result
 
