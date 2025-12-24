@@ -1929,6 +1929,67 @@ def run_comprehensive_validation(plugin_root: Path, json_output: bool = False) -
     return result
 
 
+def check_and_clear_outdated_cache(plugin_root: Path, marketplace_data: dict) -> ValidationResult:
+    """
+    Check if installed cache version is outdated compared to local source.
+    If outdated, automatically clear the cache.
+
+    Cache structure: ~/.claude/plugins/cache/{marketplace}/{plugin}/{version-or-hash}/
+
+    This ensures the deployed version always matches the local source after push.
+    """
+    import shutil
+    result = ValidationResult()
+
+    # Get marketplace name from local source
+    marketplace_name = marketplace_data.get("name", "")
+    plugins = marketplace_data.get("plugins", [])
+    if not plugins or not marketplace_name:
+        return result
+
+    local_version = plugins[0].get("version", "")
+    plugin_name = plugins[0].get("name", "")
+
+    if not plugin_name:
+        return result
+
+    # Check cache location: cache/{marketplace}/{plugin}/
+    cache_base = Path.home() / ".claude" / "plugins" / "cache" / marketplace_name / plugin_name
+    if not cache_base.exists():
+        return result
+
+    # Find cached versions (could be semver like "2.0.0" or hash like "6d3752c000e2")
+    cached_versions = [d for d in cache_base.iterdir() if d.is_dir()]
+
+    for cache_dir in cached_versions:
+        cached_version = cache_dir.name
+
+        # Check marketplace.json inside cache to get actual version
+        cached_marketplace = cache_dir / ".claude-plugin" / "marketplace.json"
+        if cached_marketplace.exists():
+            try:
+                cached_data = json.loads(cached_marketplace.read_text(encoding='utf-8'))
+                cached_plugins = cached_data.get("plugins", [])
+                if cached_plugins:
+                    cached_ver = cached_plugins[0].get("version", cached_version)
+                    if local_version and cached_ver != local_version:
+                        result.add_warning(
+                            f"[CACHE] Outdated: {plugin_name} v{cached_ver} (local: v{local_version})"
+                        )
+                        # Auto-clear outdated cache
+                        try:
+                            shutil.rmtree(cache_dir)
+                            result.add_pass(f"[CACHE] Cleared: {marketplace_name}/{plugin_name}/{cached_version}")
+                        except Exception as e:
+                            result.add_error(f"[CACHE] Failed to clear: {e}")
+                    else:
+                        result.add_pass(f"[CACHE] Current: {plugin_name} v{cached_ver}")
+            except Exception:
+                pass
+
+    return result
+
+
 def validate_deploy_readiness(plugin_root: Path) -> ValidationResult:
     """
     PHASE 4: Deploy Readiness Validation
@@ -2178,6 +2239,12 @@ def main():
             print("  1. git add -A && git commit -m 'your message'")
             print("  2. git push origin <branch>")
             print("=" * 60)
+
+    # ==========================================================================
+    # PHASE 5: Cache Management (auto-clear outdated cache)
+    # ==========================================================================
+    cache_result = check_and_clear_outdated_cache(plugin_root, data)
+    total_result.merge(cache_result)
 
     # Output results
     if json_output:
