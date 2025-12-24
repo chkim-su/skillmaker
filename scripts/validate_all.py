@@ -3,16 +3,25 @@
 Unified plugin validation and auto-fix script.
 
 Runs all automated checks and optionally fixes issues:
-- Registration integrity (marketplace.json ↔ files)
+- Registration integrity (marketplace.json - files)
 - Frontmatter validation (YAML syntax, required fields)
 - Directory structure validation
 - Settings.json validation
+- Deploy readiness (git status, push state)
+
+Validation Phases:
+    PHASE 0: Schema Static   - JSON structure validation with error codes
+    PHASE 1: CLI Validation  - Claude Code CLI schema check
+    PHASE 2: File Validation - File existence, frontmatter, content
+    PHASE 3: Best Practices  - Pattern matching, recommendations
+    PHASE 4: Deploy Ready    - Git uncommitted/unpushed checks (DEFAULT)
 
 Usage:
     python3 scripts/validate_all.py [plugin-path]
     python3 scripts/validate_all.py --fix           # Auto-fix issues
     python3 scripts/validate_all.py --fix --dry-run # Preview fixes
     python3 scripts/validate_all.py --json          # JSON output
+    python3 scripts/validate_all.py --skip-git      # Skip git status checks
 
 Exit codes:
     0 - All passed (or all fixed with --fix)
@@ -1920,6 +1929,123 @@ def run_comprehensive_validation(plugin_root: Path, json_output: bool = False) -
     return result
 
 
+def validate_deploy_readiness(plugin_root: Path) -> ValidationResult:
+    """
+    PHASE 4: Deploy Readiness Validation
+
+    Checks that are CRITICAL before deploying/publishing:
+    1. Git: No uncommitted changes
+    2. Git: No unpushed commits
+    3. Git: Branch is up to date with remote
+
+    These issues cause the deployed version to differ from the local source.
+    """
+    import subprocess
+    result = ValidationResult()
+
+    # Check if this is a git repository
+    git_dir = plugin_root / ".git"
+    if not git_dir.exists():
+        result.add_warning("Not a git repository - skipping deploy readiness checks")
+        return result
+
+    try:
+        # 1. Check for uncommitted changes (staged or unstaged)
+        status_result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=plugin_root,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if status_result.returncode == 0 and status_result.stdout.strip():
+            changes = status_result.stdout.strip().split('\n')
+            result.add_error(
+                f"[DEPLOY] {len(changes)} uncommitted change(s) detected. "
+                f"The deployed version will NOT include these changes!"
+            )
+            # Show first few changes
+            for change in changes[:5]:
+                result.add_error(f"  {change}")
+            if len(changes) > 5:
+                result.add_error(f"  ... and {len(changes) - 5} more")
+        else:
+            result.add_pass("Git: No uncommitted changes")
+
+        # 2. Check for unpushed commits
+        # Get current branch
+        branch_result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=plugin_root,
+            capture_output=True,
+            text=True,
+            timeout=10
+        )
+
+        if branch_result.returncode == 0:
+            branch = branch_result.stdout.strip()
+
+            # Check if branch has upstream
+            upstream_result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", f"{branch}@{{upstream}}"],
+                cwd=plugin_root,
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if upstream_result.returncode == 0:
+                upstream = upstream_result.stdout.strip()
+
+                # Count commits ahead of upstream
+                ahead_result = subprocess.run(
+                    ["git", "rev-list", "--count", f"{upstream}..HEAD"],
+                    cwd=plugin_root,
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+
+                if ahead_result.returncode == 0:
+                    ahead_count = int(ahead_result.stdout.strip())
+                    if ahead_count > 0:
+                        result.add_error(
+                            f"[DEPLOY] {ahead_count} unpushed commit(s) on '{branch}'. "
+                            f"Run: git push origin {branch}"
+                        )
+                    else:
+                        result.add_pass(f"Git: Branch '{branch}' is up to date with remote")
+
+                # Count commits behind upstream
+                behind_result = subprocess.run(
+                    ["git", "rev-list", "--count", f"HEAD..{upstream}"],
+                    cwd=plugin_root,
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+
+                if behind_result.returncode == 0:
+                    behind_count = int(behind_result.stdout.strip())
+                    if behind_count > 0:
+                        result.add_warning(
+                            f"[DEPLOY] Branch is {behind_count} commit(s) behind remote. "
+                            f"Consider: git pull origin {branch}"
+                        )
+            else:
+                result.add_warning(f"Git: Branch '{branch}' has no upstream tracking")
+
+    except subprocess.TimeoutExpired:
+        result.add_warning("Git status check timed out")
+    except FileNotFoundError:
+        result.add_warning("Git not found - skipping deploy readiness checks")
+    except Exception as e:
+        result.add_warning(f"Git check failed: {e}")
+
+    return result
+
+
 def main():
     # Parse arguments
     json_output = "--json" in sys.argv
@@ -2030,6 +2156,28 @@ def main():
     pattern_result = validate_against_official_patterns(plugin_root)
     total_result.warnings.extend(pattern_result.warnings)
     total_result.passed.extend(pattern_result.passed)
+
+    # ==========================================================================
+    # PHASE 4: Deploy Readiness (DEFAULT - use --skip-git to disable)
+    # ==========================================================================
+    skip_git = "--skip-git" in sys.argv
+    if not skip_git:
+        deploy_result = validate_deploy_readiness(plugin_root)
+        total_result.merge(deploy_result)
+
+        if deploy_result.errors and not json_output:
+            print()
+            print("=" * 60)
+            print("DEPLOY READINESS CHECK FAILED")
+            print("=" * 60)
+            print("The following issues will cause deployed version to differ from local:")
+            for e in deploy_result.errors:
+                print(f"  {e}")
+            print()
+            print("Fix these issues before deploying:")
+            print("  1. git add -A && git commit -m 'your message'")
+            print("  2. git push origin <branch>")
+            print("=" * 60)
 
     # Output results
     if json_output:
