@@ -71,7 +71,15 @@ Task: skill-architect
 Pass: description, skill_type
 ```
 
-5. After creation, show next steps:
+5. **Post-creation validation** (CRITICAL):
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
+```
+- If errors: Show errors and offer `--fix`
+- If warnings: Show warnings, continue
+- If pass: Show success
+
+6. After creation, show next steps:
 ```markdown
 ## Next Steps
 
@@ -111,7 +119,13 @@ Task: skill-converter
 Pass: target_path, description
 ```
 
-4. After creation, show next steps (same as SKILL step 5)
+4. **Post-creation validation** (CRITICAL):
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
+```
+- If errors: Show errors and offer `--fix`
+
+5. After creation, show next steps (same as SKILL step 6)
 
 ---
 
@@ -138,7 +152,13 @@ Task: skill-orchestrator-designer
 Pass: selected_skills, description
 ```
 
-6. After creation, show next steps (same as SKILL step 5)
+6. **Post-creation validation** (CRITICAL):
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
+```
+- If errors: Show errors and offer `--fix`
+
+7. After creation, show next steps (same as SKILL step 6)
 
 ---
 
@@ -169,7 +189,13 @@ AskUserQuestion:
 
 5. Write `.claude/commands/{name}.md` with selected agents and flow pattern.
 
-6. After creation, show next steps (same as SKILL step 5)
+6. **Post-creation validation** (CRITICAL):
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
+```
+- If errors: Show errors and offer `--fix`
+
+7. After creation, show next steps (same as SKILL step 6)
 
 ---
 

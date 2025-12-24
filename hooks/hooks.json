@@ -1,0 +1,48 @@
+{
+  "hooks": [
+    {
+      "type": "PostToolUse",
+      "description": "Validate marketplace.json after Write tool modifies it",
+      "matcher": {
+        "tool_name": "Write",
+        "path_pattern": "**/marketplace.json"
+      },
+      "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --json",
+      "on_error": "warn",
+      "timeout": 10000
+    },
+    {
+      "type": "PostToolUse",
+      "description": "Validate plugin.json after Write tool modifies it",
+      "matcher": {
+        "tool_name": "Write",
+        "path_pattern": "**/plugin.json"
+      },
+      "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --json",
+      "on_error": "warn",
+      "timeout": 10000
+    },
+    {
+      "type": "PreToolUse",
+      "description": "Validate plugin before git push",
+      "matcher": {
+        "tool_name": "Bash",
+        "command_pattern": "git push"
+      },
+      "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py",
+      "on_error": "block",
+      "timeout": 30000
+    },
+    {
+      "type": "PreToolUse",
+      "description": "Validate plugin before git commit",
+      "matcher": {
+        "tool_name": "Bash",
+        "command_pattern": "git commit"
+      },
+      "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py",
+      "on_error": "warn",
+      "timeout": 30000
+    }
+  ]
+}
