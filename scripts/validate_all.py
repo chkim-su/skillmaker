@@ -86,6 +86,8 @@ class ErrorCode:
     E020 = "E020"  # External repo missing required files (cross-repo validation)
     E021 = "E021"  # settings.json enabledPlugins must be object, not array
     E022 = "E022"  # settings.json source.type invalid discriminator (valid: url|github|git|npm|file|directory)
+    E023 = "E023"  # Marketplace cache repo mismatch (known_marketplaces.json vs git remote)
+    E024 = "E024"  # Marketplace cache stale (known_marketplaces.json entry but missing cache dir)
 
 
 # Schema patterns (regex)
@@ -1593,6 +1595,92 @@ def validate_settings_json() -> ValidationResult:
     return result
 
 
+def validate_marketplace_cache_consistency() -> ValidationResult:
+    """
+    Check for marketplace cache consistency issues (E023, E024).
+
+    Validates:
+    - E023: known_marketplaces.json repo matches actual git remote in cache
+    - E024: known_marketplaces.json entry has valid cache directory
+
+    Claude's plugin cache has 3 layers that must be consistent:
+    1. known_marketplaces.json - registry (where to fetch from)
+    2. ~/.claude/plugins/marketplaces/{name}/ - cached git clone
+    3. installed_plugins.json - active plugins list
+    """
+    result = ValidationResult()
+    home = Path.home()
+
+    known_marketplaces_path = home / ".claude" / "plugins" / "known_marketplaces.json"
+    cache_base = home / ".claude" / "plugins" / "marketplaces"
+
+    if not known_marketplaces_path.exists():
+        return result
+
+    try:
+        known_marketplaces = json.loads(known_marketplaces_path.read_text(encoding='utf-8'))
+    except (json.JSONDecodeError, IOError):
+        return result
+
+    import subprocess
+
+    for name, config in known_marketplaces.items():
+        source = config.get("source", {})
+        install_location = config.get("installLocation", "")
+
+        # E024: Check if cache directory exists
+        cache_dir = Path(install_location) if install_location else cache_base / name
+        if install_location and not cache_dir.exists():
+            result.add_error(
+                f'[E024] Marketplace "{name}" registered in known_marketplaces.json '
+                f'but cache directory missing: {cache_dir}'
+            )
+            continue
+
+        # E023: For GitHub sources, verify git remote matches
+        if isinstance(source, dict) and source.get("source") == "github":
+            expected_repo = source.get("repo", "")
+
+            if not expected_repo:
+                continue
+
+            # Check actual git remote in cache
+            git_dir = cache_dir / ".git"
+            if git_dir.exists():
+                try:
+                    git_result = subprocess.run(
+                        ["git", "remote", "get-url", "origin"],
+                        capture_output=True,
+                        text=True,
+                        cwd=cache_dir,
+                        timeout=5
+                    )
+
+                    if git_result.returncode == 0:
+                        actual_remote = git_result.stdout.strip()
+
+                        # Normalize URLs for comparison
+                        # https://github.com/owner/repo.git -> owner/repo
+                        actual_repo = actual_remote.replace("https://github.com/", "").replace(".git", "")
+
+                        if actual_repo != expected_repo:
+                            result.add_error(
+                                f'[E023] Marketplace "{name}" cache mismatch:\n'
+                                f'       known_marketplaces.json repo: {expected_repo}\n'
+                                f'       actual git remote: {actual_repo}\n'
+                                f'       Fix: Update known_marketplaces.json or re-clone cache'
+                            )
+                except subprocess.TimeoutExpired:
+                    pass
+                except Exception:
+                    pass
+
+    if not result.errors:
+        result.add_pass("Marketplace cache consistency: all passed")
+
+    return result
+
+
 def apply_fixes(fixes: List[Fix], dry_run: bool = False) -> Tuple[int, int]:
     """Apply all fixes. Returns (success_count, fail_count)."""
     success = 0
@@ -2658,6 +2746,9 @@ def main():
     total_result.merge(validate_github_source_with_local_files(plugin_root, marketplace_path))
 
     total_result.merge(validate_settings_json())
+
+    # E023, E024: Check marketplace cache consistency
+    total_result.merge(validate_marketplace_cache_consistency())
 
     for i, plugin in enumerate(plugins):
         source = plugin.get("source", "./")
