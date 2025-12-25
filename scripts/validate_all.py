@@ -1511,7 +1511,8 @@ def validate_settings_json() -> ValidationResult:
 
     Validates:
     - E021: enabledPlugins must be object, not array
-    - E022: extraKnownMarketplaces source.type must be valid discriminator
+    - E022: extraKnownMarketplaces source.source must be valid discriminator
+            (Note: discriminator field name is "source", not "type")
             Valid values: 'url' | 'github' | 'git' | 'npm' | 'file' | 'directory'
     """
     result = ValidationResult()
@@ -1559,28 +1560,30 @@ def validate_settings_json() -> ValidationResult:
             source = config.get("source", {})
 
             if isinstance(source, dict):
-                # Check for correct "type" field (not "source" inside source)
-                source_type = source.get("type")
-                wrong_source = source.get("source")  # Incorrect nested "source" field
+                # Check for correct "source" field (discriminator field name is "source")
+                # Claude Code schema: { "source": { "source": "directory", "path": "..." } }
+                source_discriminator = source.get("source")
+                wrong_type = source.get("type")  # Common mistake: using "type" instead of "source"
 
-                if wrong_source is not None:
+                if wrong_type is not None:
+                    # User used "type" instead of "source" - this is a common mistake
                     result.add_error(
                         f'[E022] settings.json: extraKnownMarketplaces.{name}.source uses '
-                        f'"source": "{wrong_source}" which is invalid. '
-                        f'Use "type": "directory" instead for local paths. '
-                        f'Valid types: {", ".join(sorted(VALID_SOURCE_TYPES))}'
+                        f'"type": "{wrong_type}" which is incorrect. '
+                        f'Use "source": "directory" instead (discriminator field is "source", not "type"). '
+                        f'Valid values: {", ".join(sorted(VALID_SOURCE_TYPES))}'
                     )
-                elif source_type is not None and source_type not in VALID_SOURCE_TYPES:
+                elif source_discriminator is not None and source_discriminator not in VALID_SOURCE_TYPES:
                     result.add_error(
-                        f'[E022] settings.json: extraKnownMarketplaces.{name}.source.type '
-                        f'"{source_type}" is invalid. '
-                        f'Valid types: {", ".join(sorted(VALID_SOURCE_TYPES))}'
+                        f'[E022] settings.json: extraKnownMarketplaces.{name}.source.source '
+                        f'"{source_discriminator}" is invalid. '
+                        f'Valid values: {", ".join(sorted(VALID_SOURCE_TYPES))}'
                     )
-                elif source_type is None and "path" in source:
-                    # Has path but no type - suggest directory
+                elif source_discriminator is None and "path" in source:
+                    # Has path but no source discriminator - suggest directory
                     result.add_error(
                         f'[E022] settings.json: extraKnownMarketplaces.{name}.source '
-                        f'has "path" but missing "type". Add "type": "directory"'
+                        f'has "path" but missing "source" discriminator. Add "source": "directory"'
                     )
             elif isinstance(source, str) and source and not source.startswith("./"):
                 result.add_error(

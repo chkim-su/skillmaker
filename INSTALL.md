@@ -72,9 +72,9 @@ For teams, add to `.claude/settings.json`:
       }
     }
   },
-  "enabledPlugins": [
-    "skillmaker@skillmaker"
-  ]
+  "enabledPlugins": {
+    "skillmaker@skillmaker": true
+  }
 }
 ```
 

@@ -85,11 +85,12 @@ def register_local(plugin_path: Path, settings_path: Path) -> dict:
     # Use forward slashes for cross-platform compatibility
     plugin_path_str = str(plugin_path).replace("\\", "/")
 
-    # CRITICAL: Use "type": "directory" - valid discriminator values are:
-    # 'url' | 'github' | 'git' | 'npm' | 'file' | 'directory'
+    # CRITICAL: Use "source": "directory" - the discriminator field name is "source"
+    # Valid discriminator values: 'url' | 'github' | 'git' | 'npm' | 'file' | 'directory'
+    # Schema reference: Claude Code settings.json extraKnownMarketplaces schema
     settings["extraKnownMarketplaces"][local_key] = {
         "source": {
-            "type": "directory",
+            "source": "directory",
             "path": plugin_path_str
         }
     }

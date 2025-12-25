@@ -262,10 +262,46 @@ def validate_settings_json(home_dir: Path = None) -> Tuple[List[str], List[str]]
                         f'must start with "./" or use GitHub format'
                     )
             elif isinstance(source, dict):
-                # GitHub format - validate structure
-                if "source" not in source or "repo" not in source:
+                # Object format - validate structure based on discriminator
+                source_type = source.get("source")
+                if source_type is None:
                     errors.append(
-                        f'settings.json extraKnownMarketplaces.{name}.source missing "source" or "repo" field'
+                        f'settings.json extraKnownMarketplaces.{name}.source missing "source" discriminator field'
+                    )
+                elif source_type == "github":
+                    if "repo" not in source:
+                        errors.append(
+                            f'settings.json extraKnownMarketplaces.{name}.source (github) missing "repo" field'
+                        )
+                elif source_type == "directory":
+                    if "path" not in source:
+                        errors.append(
+                            f'settings.json extraKnownMarketplaces.{name}.source (directory) missing "path" field'
+                        )
+                elif source_type == "file":
+                    if "path" not in source:
+                        errors.append(
+                            f'settings.json extraKnownMarketplaces.{name}.source (file) missing "path" field'
+                        )
+                elif source_type == "url":
+                    if "url" not in source:
+                        errors.append(
+                            f'settings.json extraKnownMarketplaces.{name}.source (url) missing "url" field'
+                        )
+                elif source_type == "git":
+                    if "url" not in source:
+                        errors.append(
+                            f'settings.json extraKnownMarketplaces.{name}.source (git) missing "url" field'
+                        )
+                elif source_type == "npm":
+                    if "package" not in source:
+                        errors.append(
+                            f'settings.json extraKnownMarketplaces.{name}.source (npm) missing "package" field'
+                        )
+                elif source_type not in {'url', 'github', 'git', 'npm', 'file', 'directory'}:
+                    errors.append(
+                        f'settings.json extraKnownMarketplaces.{name}.source.source "{source_type}" is invalid. '
+                        f'Valid values: url, github, git, npm, file, directory'
                     )
 
     return errors, warnings
