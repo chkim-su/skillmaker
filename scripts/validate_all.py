@@ -88,6 +88,7 @@ class ErrorCode:
     E022 = "E022"  # settings.json source.type invalid discriminator (valid: url|github|git|npm|file|directory)
     E023 = "E023"  # Marketplace cache repo mismatch (known_marketplaces.json vs git remote)
     E024 = "E024"  # Marketplace cache stale (known_marketplaces.json entry but missing cache dir)
+    E025 = "E025"  # plugin.json version doesn't match marketplace.json version
 
 
 # Schema patterns (regex)
@@ -1430,7 +1431,12 @@ def validate_marketplace_schema(data: dict, marketplace_path: Path) -> Validatio
 
 
 def validate_plugin_json(plugin_root: Path) -> ValidationResult:
-    """Validate plugin.json if it exists. Auto-fixable."""
+    """
+    Validate plugin.json if it exists. Auto-fixable.
+
+    Also checks:
+    - E025: plugin.json version must match marketplace.json version
+    """
     result = ValidationResult()
 
     plugin_json = plugin_root / ".claude-plugin" / "plugin.json"
@@ -1463,6 +1469,33 @@ def validate_plugin_json(plugin_root: Path) -> ValidationResult:
     if "repository" in data and isinstance(data["repository"], dict):
         needs_fix = True
         result.add_error('plugin.json: converting repository object => string')
+
+    # E025: Check version consistency with marketplace.json
+    marketplace_json = plugin_root / ".claude-plugin" / "marketplace.json"
+    if marketplace_json.exists():
+        try:
+            marketplace_data = json.loads(marketplace_json.read_text(encoding='utf-8'))
+            plugin_json_version = data.get("version", "")
+            plugin_json_name = data.get("name", "")
+
+            # Check marketplace.json plugins array for matching plugin
+            plugins = marketplace_data.get("plugins", [])
+            for plugin in plugins:
+                mp_name = plugin.get("name", "")
+                mp_version = plugin.get("version", "")
+
+                # Match by name or if only one plugin
+                if mp_name == plugin_json_name or len(plugins) == 1:
+                    if plugin_json_version and mp_version and plugin_json_version != mp_version:
+                        result.add_error(
+                            f'[E025] Version mismatch: plugin.json has "{plugin_json_version}" '
+                            f'but marketplace.json has "{mp_version}". '
+                            f'Claude displays plugin.json version in /plugin UI. '
+                            f'Update plugin.json to match marketplace.json version.'
+                        )
+                    break
+        except (json.JSONDecodeError, IOError):
+            pass
 
     # Add auto-fix
     if needs_fix:

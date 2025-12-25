@@ -6,14 +6,14 @@
   "homepage": "https://github.com/chkim-su/skillmaker",
   "metadata": {
     "description": "Skillmaker: Create perfect skills and subagents that use them with isolated context",
-    "version": "2.2.2"
+    "version": "2.2.3"
   },
   "plugins": [
     {
       "name": "skillmaker",
       "description": "Create perfect skills and subagents that use them explicitly. Solve the context window problem with skill-based architecture.",
       "source": "./",
-      "version": "2.2.2",
+      "version": "2.2.3",
       "author": {
         "name": "Chanho KIM"
       },
