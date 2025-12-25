@@ -24,6 +24,15 @@ Usage:
     python3 scripts/validate_all.py --fix --dry-run # Preview fixes
     python3 scripts/validate_all.py --json          # JSON output
     python3 scripts/validate_all.py --skip-git      # Skip git status checks
+    python3 scripts/validate_all.py --schema-only   # Fast: only schema validation
+    python3 scripts/validate_all.py --quiet         # Minimal output, errors only
+    python3 scripts/validate_all.py --pre-edit      # Validate current state before edit
+
+Hook Integration:
+    Hooks can use these flags for efficient validation:
+    - PostToolUse (Write/Edit): --skip-git --schema-only  (fastest, ~1s)
+    - PreToolUse (git commit):  --skip-git                (medium, ~2s)
+    - PreToolUse (git push):    (no flags)                (full, ~5s)
 
 Exit codes:
     0 - All passed (or all fixed with --fix)
@@ -2487,6 +2496,10 @@ def main():
     json_output = "--json" in sys.argv
     fix_mode = "--fix" in sys.argv
     dry_run = "--dry-run" in sys.argv
+    schema_only = "--schema-only" in sys.argv
+    pre_edit = "--pre-edit" in sys.argv
+    quiet_mode = "--quiet" in sys.argv
+    skip_git = "--skip-git" in sys.argv
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
 
     plugin_root = Path(args[0]).resolve() if args else Path.cwd()
@@ -2525,7 +2538,7 @@ def main():
 
     # If schema has errors, show them prominently
     if schema_result.errors:
-        if not json_output:
+        if not json_output and not quiet_mode:
             print("=" * 60)
             print("SCHEMA VALIDATION FAILED")
             print("=" * 60)
@@ -2539,23 +2552,46 @@ def main():
             print()
 
     # ==========================================================================
+    # FAST PATH: --schema-only skips all other phases
+    # ==========================================================================
+    if schema_only:
+        # Quick exit for schema-only validation (used by hooks for fast feedback)
+        if json_output:
+            print(json.dumps({
+                "status": "fail" if total_result.errors else "pass",
+                "errors": total_result.errors,
+                "warnings": total_result.warnings,
+                "passed": len(total_result.passed),
+                "mode": "schema-only"
+            }, indent=2))
+        elif not quiet_mode:
+            if total_result.errors:
+                print(f"[SCHEMA] FAIL: {len(total_result.errors)} error(s)")
+                for e in total_result.errors:
+                    print(f"  {e}")
+            else:
+                print("[SCHEMA] PASS")
+        sys.exit(1 if total_result.errors else 0)
+
+    # ==========================================================================
     # PHASE 1: CLI Validation (secondary check, may catch additional issues)
     # ==========================================================================
-    cli_success, cli_output, cli_errors = run_claude_cli_validation(plugin_root)
-    cli_available = "not found" not in cli_output.lower()
+    if not quiet_mode:
+        cli_success, cli_output, cli_errors = run_claude_cli_validation(plugin_root)
+        cli_available = "not found" not in cli_output.lower()
 
-    if cli_available:
-        if cli_success:
-            total_result.add_pass("CLI validation: passed")
+        if cli_available:
+            if cli_success:
+                total_result.add_pass("CLI validation: passed")
+            else:
+                # CLI found additional errors - show them (avoid duplicates)
+                for error in cli_errors:
+                    error_msg = f"CLI: {error}"
+                    if error_msg not in total_result.errors:
+                        total_result.add_error(error_msg)
         else:
-            # CLI found additional errors - show them (avoid duplicates)
-            for error in cli_errors:
-                error_msg = f"CLI: {error}"
-                if error_msg not in total_result.errors:
-                    total_result.add_error(error_msg)
-    else:
-        # CLI not available - our schema validation already ran
-        total_result.add_warning("Claude CLI not installed (npm install -g @anthropic-ai/claude-code)")
+            # CLI not available - our schema validation already ran
+            total_result.add_warning("Claude CLI not installed (npm install -g @anthropic-ai/claude-code)")
 
     # ==========================================================================
     # PHASE 2: File/Content Validation (our unique checks, not in CLI)
@@ -2603,12 +2639,11 @@ def main():
     # ==========================================================================
     # PHASE 4: Deploy Readiness (DEFAULT - use --skip-git to disable)
     # ==========================================================================
-    skip_git = "--skip-git" in sys.argv
     if not skip_git:
         deploy_result = validate_deploy_readiness(plugin_root)
         total_result.merge(deploy_result)
 
-        if deploy_result.errors and not json_output:
+        if deploy_result.errors and not json_output and not quiet_mode:
             print()
             print("=" * 60)
             print("DEPLOY READINESS CHECK FAILED")
@@ -2645,6 +2680,13 @@ def main():
             "fixable": len(total_result.fixes)
         }
         print(json.dumps(output, indent=2))
+    elif quiet_mode:
+        # Minimal output for hooks - only show errors
+        if total_result.errors:
+            for e in total_result.errors:
+                print(f"[ERROR] {e}")
+            print(f"FAIL: {len(total_result.errors)} error(s)")
+        # In quiet mode, don't print anything on success
     else:
         print("=" * 60)
         print("PLUGIN VALIDATION")
@@ -2681,14 +2723,16 @@ def main():
     # Apply fixes if requested
     if fix_mode and total_result.fixes:
         success, fail = apply_fixes(total_result.fixes, dry_run)
-        print(f"\nFixes applied: {success}, Failed: {fail}")
+        if not quiet_mode:
+            print(f"\nFixes applied: {success}, Failed: {fail}")
 
-        if not dry_run and success > 0:
-            print("\n[TIP] Re-run validation to verify fixes:")
-            print(f"   python3 {sys.argv[0]}")
+            if not dry_run and success > 0:
+                print("\n[TIP] Re-run validation to verify fixes:")
+                print(f"   python3 {sys.argv[0]}")
     elif fix_mode and not total_result.fixes:
-        print("\n[OK] Nothing to fix!")
-    elif total_result.fixes and not json_output:
+        if not quiet_mode:
+            print("\n[OK] Nothing to fix!")
+    elif total_result.fixes and not json_output and not quiet_mode:
         print(f"\n[--fix] {len(total_result.fixes)} errors can be auto-fixed:")
         print(f"   python3 {sys.argv[0]} --fix")
         print(f"   python3 {sys.argv[0]} --fix --dry-run  # Preview only")
