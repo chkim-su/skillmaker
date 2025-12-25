@@ -15,6 +15,8 @@ Validation Phases:
     PHASE 2: File Validation - File existence, frontmatter, content
     PHASE 3: Best Practices  - Pattern matching, recommendations
     PHASE 4: Deploy Ready    - Git uncommitted/unpushed checks (DEFAULT)
+    PHASE 5: Remote Check    - GitHub source repo accessibility & structure
+    PHASE 6: Cache Mgmt      - Auto-clear outdated plugin cache
 
 Usage:
     python3 scripts/validate_all.py [plugin-path]
@@ -70,6 +72,9 @@ class ErrorCode:
     E015 = "E015"  # Invalid name format (not kebab-case)
     E016 = "E016"  # Path resolution mismatch (file exists at plugin_root but not at marketplace.json location)
     E017 = "E017"  # marketplace.json location causes path resolution issues
+    E018 = "E018"  # Git remote does not match marketplace.json source repo
+    E019 = "E019"  # External GitHub repo not accessible or doesn't exist
+    E020 = "E020"  # External repo missing required files (cross-repo validation)
 
 
 # Schema patterns (regex)
@@ -1753,6 +1758,148 @@ def validate_github_source_with_local_files(plugin_root: Path, marketplace_path:
     return result
 
 
+def validate_remote_source_consistency(plugin_root: Path, marketplace_path: Path) -> ValidationResult:
+    """
+    PHASE 5: Remote Consistency Check (E018, E019, E020)
+
+    For Multi-Repo deployments, validate:
+    1. E018: Git remote matches marketplace.json source repo (or is intentionally different)
+    2. E019: External GitHub repos are accessible
+    3. E020: External repos contain required files
+
+    This catches the common mistake where:
+    - Marketplace is pushed to repo A
+    - Plugin source points to repo B
+    - But repo B doesn't exist, is empty, or has wrong structure
+    """
+    result = ValidationResult()
+
+    if not marketplace_path.exists():
+        return result
+
+    try:
+        data = json.loads(marketplace_path.read_text(encoding='utf-8'))
+    except:
+        return result
+
+    # Get current git remote
+    git_remote = None
+    try:
+        import subprocess
+        remote_output = subprocess.run(
+            ["git", "remote", "get-url", "origin"],
+            cwd=str(plugin_root),
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        if remote_output.returncode == 0:
+            url = remote_output.stdout.strip()
+            # Extract owner/repo from various URL formats
+            # https://github.com/owner/repo.git
+            # git@github.com:owner/repo.git
+            import re
+            match = re.search(r'github\.com[:/]([^/]+/[^/]+?)(?:\.git)?$', url)
+            if match:
+                git_remote = match.group(1)
+    except:
+        pass
+
+    plugins = data.get("plugins", [data])
+
+    for i, plugin in enumerate(plugins):
+        source = plugin.get("source")
+        plugin_name = plugin.get("name", f"plugins[{i}]")
+
+        # Only check GitHub sources
+        if not isinstance(source, dict) or source.get("source") != "github":
+            continue
+
+        repo = source.get("repo", "")
+        if not repo:
+            continue
+
+        # E018: Check if git remote matches source repo
+        if git_remote and git_remote != repo:
+            # This might be intentional (multi-repo setup)
+            # Just warn, don't error
+            result.add_warning(
+                f'{plugin_name}: Git remote "{git_remote}" differs from source.repo "{repo}". '
+                f'This is OK for multi-repo setups, but verify both repos are properly configured.'
+            )
+
+        # E019 & E020: Check if external repo is accessible and has files
+        try:
+            import subprocess
+            # Check if repo exists and is accessible
+            gh_check = subprocess.run(
+                ["gh", "api", f"repos/{repo}", "--jq", ".name"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if gh_check.returncode != 0:
+                result.add_error(format_error(
+                    ErrorCode.E019,
+                    f'{plugin_name}: GitHub repo "{repo}" is not accessible. '
+                    f'Error: {gh_check.stderr.strip()}\n'
+                    f'       Verify the repo exists and is public (or you have access).'
+                ))
+                continue
+
+            # E020: Check if repo has required structure
+            contents_check = subprocess.run(
+                ["gh", "api", f"repos/{repo}/contents", "--jq", ".[].name"],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+
+            if contents_check.returncode == 0:
+                repo_contents = contents_check.stdout.strip().split('\n')
+
+                # Check for .claude-plugin directory or marketplace.json
+                has_claude_plugin = '.claude-plugin' in repo_contents
+                has_marketplace = 'marketplace.json' in repo_contents
+
+                if not has_claude_plugin and not has_marketplace:
+                    result.add_warning(
+                        f'{plugin_name}: Repo "{repo}" has no .claude-plugin/ or marketplace.json. '
+                        f'Claude may not recognize this as a valid plugin.'
+                    )
+
+                # Check for component directories matching marketplace.json
+                for component_type in ["commands", "agents", "skills", "hooks"]:
+                    items = plugin.get(component_type, [])
+                    if items and component_type not in repo_contents:
+                        result.add_error(format_error(
+                            ErrorCode.E020,
+                            f'{plugin_name}: marketplace.json references "{component_type}/" '
+                            f'but repo "{repo}" has no "{component_type}/" directory. '
+                            f'Claude will fail to load these components!'
+                        ))
+            else:
+                result.add_pass(f'{plugin_name}: repo "{repo}" is accessible')
+
+        except FileNotFoundError:
+            # gh CLI not installed
+            result.add_warning(
+                f'GitHub CLI (gh) not installed. Cannot verify external repo "{repo}". '
+                f'Install with: brew install gh (Mac) or apt install gh (Linux)'
+            )
+            break
+        except subprocess.TimeoutExpired:
+            result.add_warning(f'Timeout checking repo "{repo}". Network issue?')
+        except Exception as e:
+            result.add_warning(f'Error checking repo "{repo}": {e}')
+
+    if not result.errors and not result.warnings:
+        result.add_pass("Remote source consistency check passed")
+
+    return result
+
+
 def validate_component_locations(plugin_root: Path, marketplace_path: Path) -> ValidationResult:
     """
     Validate that registered component paths actually exist from plugin root.
@@ -2476,7 +2623,14 @@ def main():
             print("=" * 60)
 
     # ==========================================================================
-    # PHASE 5: Cache Management (auto-clear outdated cache)
+    # PHASE 5: Remote Source Consistency (for GitHub sources)
+    # ==========================================================================
+    # Check if GitHub source repos exist and have correct structure
+    remote_result = validate_remote_source_consistency(plugin_root, marketplace_path)
+    total_result.merge(remote_result)
+
+    # ==========================================================================
+    # PHASE 6: Cache Management (auto-clear outdated cache)
     # ==========================================================================
     cache_result = check_and_clear_outdated_cache(plugin_root, data)
     total_result.merge(cache_result)

@@ -364,12 +364,15 @@ The validation script performs **comprehensive multi-layer checking**:
 | **Path Resolution** | **E016** | **Path mismatch - file exists but Claude looks elsewhere** |
 | **Path Resolution** | **E017** | **marketplace.json location causes path issues** |
 | **Source Mismatch** | **E016** | **GitHub source used but local files exist** |
+| **Remote Mismatch** | **E018** | **Git remote ≠ marketplace.json source repo** |
+| **Remote Access** | **E019** | **External GitHub repo not accessible** |
+| **Remote Files** | **E020** | **External repo missing required files** |
 | Edge Case | Null/empty source | Catches `source: null`, `source: ""`, `source: {}` |
 | Edge Case | Wrong key names | Detects `"type"` instead of `"source"` |
 | Pattern | Official patterns | Validates against official Claude plugin structure |
 | CLI | Double-validation | Runs `claude plugin validate` if available |
 
-## Critical Error Codes (E016, E017)
+## Critical Error Codes (E016-E020)
 
 ### E016: Path Resolution Mismatch
 
@@ -404,6 +407,56 @@ source: {"source": "github", "repo": "owner/repo"}
 # 자동 수정 실행
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --fix
 ```
+
+### E018: Git Remote ≠ Source Mismatch
+
+**증상**: 현재 Git 리모트와 marketplace.json의 source 리포지토리가 다름
+
+**원인**:
+```
+현재 리모트: github.com/user-a/my-plugin
+marketplace.json source: {"source": "github", "repo": "user-b/other-repo"}
+```
+
+**해결 방법**:
+1. marketplace.json의 source를 현재 리모트와 일치시키기
+2. 또는 다른 리포지토리로 푸시하려면 리모트 변경
+
+### E019: External Repo Not Accessible
+
+**증상**: marketplace.json에서 참조하는 외부 GitHub 리포지토리에 접근 불가
+
+**원인**:
+- 리포지토리가 존재하지 않음
+- 리포지토리가 private이고 접근 권한 없음
+- GitHub CLI (`gh`)가 인증되지 않음
+
+**해결 방법**:
+```bash
+# 리포지토리 존재 확인
+gh repo view owner/repo
+
+# 리포지토리 생성 (필요시)
+gh repo create owner/repo --public
+
+# GitHub CLI 인증 (필요시)
+gh auth login
+```
+
+### E020: External Repo Missing Files
+
+**증상**: 외부 리포지토리에 marketplace.json에서 선언한 파일이 없음
+
+**원인**:
+```
+marketplace.json에 선언: ./commands/analyze.md
+외부 리포지토리: commands/analyze.md 파일 없음
+```
+
+**해결 방법**:
+1. 외부 리포지토리에 누락된 파일 푸시
+2. 또는 marketplace.json에서 해당 경로 제거
+3. Multi Repo 대신 Single Repo 모델 사용 고려
 
 ## Execution Steps
 

@@ -1,41 +1,96 @@
 {
-  "$comment": "Copy these hooks to your ~/.claude/settings.json to enable blocking validation",
+  "$comment": "Skillmaker validation hooks - Copy to ~/.claude/settings.json to enable",
   "hooks": {
     "PreToolUse": [
       {
         "matcher": "Bash",
         "pattern": "git commit",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py",
+        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
         "behavior": "block",
         "timeout": 30000,
-        "description": "BLOCKING: Validate plugin before git commit"
+        "description": "BLOCK: Validate plugin before git commit"
       },
       {
         "matcher": "Bash",
         "pattern": "git push",
         "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py",
         "behavior": "block",
+        "timeout": 45000,
+        "description": "BLOCK: Full validation (including remote check) before git push"
+      },
+      {
+        "matcher": "Bash",
+        "pattern": "claude marketplace add",
+        "command": "echo 'Installing marketplace...' && python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py",
+        "behavior": "notify",
         "timeout": 30000,
-        "description": "BLOCKING: Validate plugin before git push"
+        "description": "NOTIFY: Validate before marketplace installation"
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Write",
         "pattern": "marketplace.json",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --json",
+        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
         "behavior": "block",
-        "timeout": 10000,
-        "description": "BLOCKING: Validate marketplace.json after modification"
+        "timeout": 15000,
+        "description": "BLOCK: Validate after marketplace.json modification"
       },
       {
         "matcher": "Write",
         "pattern": "plugin.json",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --json",
+        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
         "behavior": "block",
-        "timeout": 10000,
-        "description": "BLOCKING: Validate plugin.json after modification"
+        "timeout": 15000,
+        "description": "BLOCK: Validate after plugin.json modification"
+      },
+      {
+        "matcher": "Write",
+        "pattern": "agents/.*\\.md$",
+        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
+        "behavior": "block",
+        "timeout": 15000,
+        "description": "BLOCK: Validate after agent creation/modification"
+      },
+      {
+        "matcher": "Write",
+        "pattern": "commands/.*\\.md$",
+        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
+        "behavior": "block",
+        "timeout": 15000,
+        "description": "BLOCK: Validate after command creation/modification"
+      },
+      {
+        "matcher": "Write",
+        "pattern": "skills/.*/SKILL\\.md$",
+        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
+        "behavior": "block",
+        "timeout": 15000,
+        "description": "BLOCK: Validate after skill creation/modification"
+      },
+      {
+        "matcher": "Task",
+        "pattern": "skill-architect|skill-converter|skill-orchestrator",
+        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
+        "behavior": "block",
+        "timeout": 20000,
+        "description": "BLOCK: Validate after skillmaker agent completes"
       }
     ]
+  },
+  "$instructions": {
+    "installation": [
+      "1. Copy this hooks section to ~/.claude/settings.json",
+      "2. Ensure CLAUDE_PLUGIN_ROOT is set, OR replace with actual path",
+      "3. Restart Claude Code to apply hooks"
+    ],
+    "behavior_options": {
+      "block": "Prevents the operation if validation fails",
+      "notify": "Shows warning but allows operation to proceed"
+    },
+    "troubleshooting": {
+      "path_not_found": "Set CLAUDE_PLUGIN_ROOT or use absolute path to validate_all.py",
+      "timeout": "Increase timeout value if validation is slow"
+    }
   }
 }
