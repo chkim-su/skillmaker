@@ -84,27 +84,30 @@ def register_local(plugin_path: Path, settings_path: Path) -> dict:
     # Add local marketplace
     # Use forward slashes for cross-platform compatibility
     plugin_path_str = str(plugin_path).replace("\\", "/")
+
+    # CRITICAL: Use "type": "directory" - valid discriminator values are:
+    # 'url' | 'github' | 'git' | 'npm' | 'file' | 'directory'
     settings["extraKnownMarketplaces"][local_key] = {
         "source": {
-            "source": "local",
+            "type": "directory",
             "path": plugin_path_str
         }
     }
 
-    # Ensure enabledPlugins exists and is a list
+    # Ensure enabledPlugins exists and is an OBJECT (not array!)
+    # Claude Code expects: {"plugin@marketplace": true}
     if "enabledPlugins" not in settings:
-        settings["enabledPlugins"] = []
-    elif isinstance(settings["enabledPlugins"], dict):
-        # Convert dict format to list format if needed
-        # Old format: {"plugin@marketplace": true}
-        # New format: ["plugin@marketplace"]
+        settings["enabledPlugins"] = {}
+    elif isinstance(settings["enabledPlugins"], list):
+        # Convert list format to object format
+        # Old format: ["plugin@marketplace"]
+        # Correct format: {"plugin@marketplace": true}
         old_plugins = settings["enabledPlugins"]
-        settings["enabledPlugins"] = [k for k, v in old_plugins.items() if v]
+        settings["enabledPlugins"] = {p: True for p in old_plugins}
 
-    # Add plugin to enabled list
+    # Add plugin to enabled plugins (object format)
     plugin_ref = f"{plugin_name}@{local_key}"
-    if plugin_ref not in settings["enabledPlugins"]:
-        settings["enabledPlugins"].append(plugin_ref)
+    settings["enabledPlugins"][plugin_ref] = True
 
     return {
         "settings": settings,

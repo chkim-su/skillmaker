@@ -84,6 +84,8 @@ class ErrorCode:
     E018 = "E018"  # Git remote does not match marketplace.json source repo
     E019 = "E019"  # External GitHub repo not accessible or doesn't exist
     E020 = "E020"  # External repo missing required files (cross-repo validation)
+    E021 = "E021"  # settings.json enabledPlugins must be object, not array
+    E022 = "E022"  # settings.json source.type invalid discriminator (valid: url|github|git|npm|file|directory)
 
 
 # Schema patterns (regex)
@@ -1504,9 +1506,19 @@ def validate_scripts(plugin_root: Path) -> ValidationResult:
 
 
 def validate_settings_json() -> ValidationResult:
-    """Check for common settings.json misconfigurations."""
+    """
+    Check for common settings.json misconfigurations.
+
+    Validates:
+    - E021: enabledPlugins must be object, not array
+    - E022: extraKnownMarketplaces source.type must be valid discriminator
+            Valid values: 'url' | 'github' | 'git' | 'npm' | 'file' | 'directory'
+    """
     result = ValidationResult()
     home = Path.home()
+
+    # Valid source type discriminator values for settings.json
+    VALID_SOURCE_TYPES = {'url', 'github', 'git', 'npm', 'file', 'directory'}
 
     settings_paths = [
         home / ".claude" / "settings.json",
@@ -1522,6 +1534,15 @@ def validate_settings_json() -> ValidationResult:
         except (json.JSONDecodeError, IOError):
             continue
 
+        # E021: Check enabledPlugins format (must be object, not array)
+        enabled_plugins = settings.get("enabledPlugins")
+        if enabled_plugins is not None:
+            if isinstance(enabled_plugins, list):
+                result.add_error(
+                    f'[E021] settings.json: enabledPlugins must be an object {{"plugin@marketplace": true}}, '
+                    f'not an array. Found: {type(enabled_plugins).__name__}'
+                )
+
         plugins = settings.get("plugins", [])
         for i, plugin in enumerate(plugins):
             if isinstance(plugin, dict):
@@ -1532,10 +1553,36 @@ def validate_settings_json() -> ValidationResult:
                             f'settings.json plugins[{i}].source "{source}" must start with "./"'
                         )
 
+        # E022: Check extraKnownMarketplaces source format
         marketplaces = settings.get("extraKnownMarketplaces", {})
         for name, config in marketplaces.items():
-            source = config.get("source", "")
-            if isinstance(source, str) and source and not source.startswith("./"):
+            source = config.get("source", {})
+
+            if isinstance(source, dict):
+                # Check for correct "type" field (not "source" inside source)
+                source_type = source.get("type")
+                wrong_source = source.get("source")  # Incorrect nested "source" field
+
+                if wrong_source is not None:
+                    result.add_error(
+                        f'[E022] settings.json: extraKnownMarketplaces.{name}.source uses '
+                        f'"source": "{wrong_source}" which is invalid. '
+                        f'Use "type": "directory" instead for local paths. '
+                        f'Valid types: {", ".join(sorted(VALID_SOURCE_TYPES))}'
+                    )
+                elif source_type is not None and source_type not in VALID_SOURCE_TYPES:
+                    result.add_error(
+                        f'[E022] settings.json: extraKnownMarketplaces.{name}.source.type '
+                        f'"{source_type}" is invalid. '
+                        f'Valid types: {", ".join(sorted(VALID_SOURCE_TYPES))}'
+                    )
+                elif source_type is None and "path" in source:
+                    # Has path but no type - suggest directory
+                    result.add_error(
+                        f'[E022] settings.json: extraKnownMarketplaces.{name}.source '
+                        f'has "path" but missing "type". Add "type": "directory"'
+                    )
+            elif isinstance(source, str) and source and not source.startswith("./"):
                 result.add_error(
                     f'settings.json extraKnownMarketplaces.{name}.source must start with "./"'
                 )
