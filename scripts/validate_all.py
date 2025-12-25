@@ -68,6 +68,8 @@ class ErrorCode:
     E013 = "E013"  # Unrecognized field in schema
     E014 = "E014"  # Missing required field
     E015 = "E015"  # Invalid name format (not kebab-case)
+    E016 = "E016"  # Path resolution mismatch (file exists at plugin_root but not at marketplace.json location)
+    E017 = "E017"  # marketplace.json location causes path resolution issues
 
 
 # Schema patterns (regex)
@@ -1687,6 +1689,70 @@ def test_source_edge_cases(marketplace_path: Path) -> ValidationResult:
     return result
 
 
+def validate_github_source_with_local_files(plugin_root: Path, marketplace_path: Path) -> ValidationResult:
+    """
+    CRITICAL: Detect when GitHub source is used but local files exist.
+
+    This catches the common mistake where:
+    - marketplace.json uses GitHub source: {"source": "github", "repo": "owner/repo"}
+    - But actual component files (commands/, agents/, etc.) exist locally
+    - Claude will ignore local files and try to download from GitHub
+    - If GitHub repo doesn't exist or is empty, plugins won't load
+
+    This is especially problematic during local development.
+    """
+    result = ValidationResult()
+
+    if not marketplace_path.exists():
+        return result
+
+    try:
+        data = json.loads(marketplace_path.read_text(encoding='utf-8'))
+    except:
+        return result
+
+    plugins = data.get("plugins", [data])
+
+    for i, plugin in enumerate(plugins):
+        source = plugin.get("source")
+
+        # Check if source is GitHub (object format)
+        if isinstance(source, dict) and source.get("source") == "github":
+            repo = source.get("repo", "unknown")
+
+            # Check if local component files exist
+            local_components = []
+            for component_type in ["commands", "agents", "skills", "hooks"]:
+                items = plugin.get(component_type, [])
+                if isinstance(items, str):
+                    items = [items]
+
+                for item_path in items:
+                    if isinstance(item_path, str):
+                        normalized = item_path.lstrip("./")
+                        full_path = plugin_root / normalized
+                        if full_path.exists():
+                            local_components.append(normalized)
+
+            if local_components:
+                result.add_error(format_error(
+                    ErrorCode.E016,
+                    f'plugins[{i}] uses GitHub source "{repo}" but LOCAL files exist:\n'
+                    f'       {", ".join(local_components[:5])}{"..." if len(local_components) > 5 else ""}\n'
+                    f'       Claude will IGNORE these local files and download from GitHub.\n'
+                    f'       If the GitHub repo is empty or doesn\'t exist, plugins won\'t load!'
+                ))
+
+                result.add_warning(
+                    f'FIX OPTIONS:\n'
+                    f'       1. Push files to GitHub: git push origin main\n'
+                    f'       2. OR change source to "./" for local development:\n'
+                    f'          "source": "./"  (instead of GitHub object)'
+                )
+
+    return result
+
+
 def validate_component_locations(plugin_root: Path, marketplace_path: Path) -> ValidationResult:
     """
     Validate that registered component paths actually exist from plugin root.
@@ -1818,6 +1884,168 @@ def validate_component_locations(plugin_root: Path, marketplace_path: Path) -> V
                         )
 
     return result
+
+
+def validate_path_resolution_consistency(plugin_root: Path, marketplace_path: Path) -> ValidationResult:
+    """
+    CRITICAL VALIDATION: Detect path resolution mismatches.
+
+    Claude Code plugin system has SPECIAL handling for .claude-plugin/ directory:
+    - When marketplace.json is in .claude-plugin/, Claude resolves paths from PLUGIN ROOT
+    - When marketplace.json is elsewhere, Claude resolves paths from marketplace.json location
+
+    This catches the common mistake where:
+    - marketplace.json is NOT in the standard .claude-plugin/ location
+    - Component paths are "./commands/...", "./agents/...", etc.
+    - Actual files exist at a different location than where Claude will look
+
+    Error Codes:
+    - E016: Path resolution mismatch - file exists but Claude will look in wrong location
+    - E017: marketplace.json location causes structural issues
+    """
+    result = ValidationResult()
+
+    if not marketplace_path.exists():
+        return result
+
+    try:
+        data = json.loads(marketplace_path.read_text(encoding='utf-8'))
+    except:
+        return result
+
+    # Determine marketplace.json directory
+    marketplace_dir = marketplace_path.parent
+
+    # SPECIAL CASE: .claude-plugin/ directory
+    # Claude Code treats .claude-plugin/marketplace.json specially:
+    # Paths are resolved from the PLUGIN ROOT (parent of .claude-plugin/)
+    is_in_claude_plugin_dir = marketplace_dir.name == ".claude-plugin"
+
+    if is_in_claude_plugin_dir:
+        # Standard structure: .claude-plugin/marketplace.json with components at plugin root
+        # Claude resolves paths from plugin_root, so check files exist there
+        resolve_base = plugin_root
+        result.add_pass("marketplace.json in .claude-plugin/ - using plugin root for path resolution")
+    elif marketplace_dir == plugin_root:
+        # marketplace.json at plugin root - paths resolve from root
+        resolve_base = plugin_root
+        result.add_pass("marketplace.json at plugin root - path resolution OK")
+    else:
+        # marketplace.json in non-standard nested location
+        # This is where path resolution issues typically occur
+        resolve_base = marketplace_dir
+        result.add_warning(
+            f'marketplace.json is in non-standard location "{marketplace_dir.relative_to(plugin_root)}/". '
+            f'Paths will be resolved relative to this directory, not plugin root.'
+        )
+
+    plugins = data.get("plugins", [data])
+    mismatch_found = False
+    missing_at_resolve_base = []
+
+    for i, plugin in enumerate(plugins):
+        prefix = f"plugins[{i}]"
+
+        for component_type in ["commands", "agents", "skills", "hooks"]:
+            items = plugin.get(component_type, [])
+            if isinstance(items, str):
+                items = [items]
+
+            for item_path in items:
+                if not isinstance(item_path, str):
+                    continue
+
+                # Normalize path (remove leading ./)
+                normalized = item_path.lstrip("./")
+
+                # Path where Claude WILL look (based on resolve_base)
+                resolved_path = resolve_base / normalized
+
+                # Path at plugin root (for comparison)
+                root_path = plugin_root / normalized
+
+                # Check file existence
+                file_at_resolved = resolved_path.exists()
+                file_at_root = root_path.exists()
+
+                if not file_at_resolved:
+                    if file_at_root and resolve_base != plugin_root:
+                        # File exists at root but Claude will look elsewhere
+                        mismatch_found = True
+                        result.add_error(format_error(
+                            ErrorCode.E016,
+                            f'{prefix}.{component_type}: "{item_path}" - '
+                            f'FILE EXISTS at {root_path.relative_to(plugin_root)} '
+                            f'but Claude will look at {resolved_path.relative_to(plugin_root)} (NOT FOUND). '
+                            f'Claude will FAIL to load this component!'
+                        ))
+                    else:
+                        # File doesn't exist anywhere
+                        missing_at_resolve_base.append((prefix, component_type, item_path, resolved_path))
+
+    # Report files missing at expected location (will be caught by E012 elsewhere, but add context)
+    for prefix, component_type, item_path, resolved_path in missing_at_resolve_base:
+        # E012 will be raised by validate_component_locations, so just add info here
+        pass
+
+    # If mismatches found in non-standard locations, suggest fixes
+    if mismatch_found:
+        result.add_error(
+            format_error(
+                ErrorCode.E017,
+                f'marketplace.json is in "{marketplace_dir.relative_to(plugin_root)}/" but components are at plugin root. '
+                f'Move marketplace.json to .claude-plugin/ or plugin root for correct path resolution.'
+            ),
+            Fix(
+                'Move marketplace.json to .claude-plugin/ directory (standard location)',
+                fix_move_marketplace_to_claude_plugin, plugin_root, marketplace_path
+            )
+        )
+    elif not mismatch_found and (is_in_claude_plugin_dir or marketplace_dir == plugin_root):
+        result.add_pass("Path resolution consistency check passed")
+
+    return result
+
+
+def fix_move_marketplace_to_claude_plugin(plugin_root: Path, current_marketplace_path: Path):
+    """Move marketplace.json to .claude-plugin/ directory (standard location)."""
+    import shutil
+
+    claude_plugin_dir = plugin_root / ".claude-plugin"
+    claude_plugin_dir.mkdir(exist_ok=True)
+
+    dst = claude_plugin_dir / "marketplace.json"
+
+    if current_marketplace_path.exists() and not dst.exists():
+        shutil.move(str(current_marketplace_path), str(dst))
+
+
+def fix_add_plugin_root_metadata(marketplace_path: Path):
+    """Add pluginRoot: '../' to metadata to fix path resolution."""
+    data = json.loads(marketplace_path.read_text(encoding='utf-8'))
+
+    if "metadata" not in data:
+        data["metadata"] = {}
+
+    data["metadata"]["pluginRoot"] = "../"
+
+    marketplace_path.write_text(json.dumps(data, indent=2) + "\n")
+
+
+def fix_move_marketplace_to_root(plugin_root: Path):
+    """Move marketplace.json from .claude-plugin/ to plugin root."""
+    import shutil
+
+    src = plugin_root / ".claude-plugin" / "marketplace.json"
+    dst = plugin_root / "marketplace.json"
+
+    if src.exists() and not dst.exists():
+        shutil.move(str(src), str(dst))
+
+        # If .claude-plugin is now empty, remove it
+        claude_plugin_dir = plugin_root / ".claude-plugin"
+        if claude_plugin_dir.exists() and not any(claude_plugin_dir.iterdir()):
+            claude_plugin_dir.rmdir()
 
 
 def validate_against_official_patterns(plugin_root: Path) -> ValidationResult:
@@ -2188,6 +2416,13 @@ def main():
 
     # CRITICAL: Check component directory structure first
     total_result.merge(validate_component_locations(plugin_root, marketplace_path))
+
+    # CRITICAL: Check path resolution consistency (E016, E017)
+    # This detects when marketplace.json is in .claude-plugin/ but components are at root
+    total_result.merge(validate_path_resolution_consistency(plugin_root, marketplace_path))
+
+    # CRITICAL: Check for GitHub source with local files (common development mistake)
+    total_result.merge(validate_github_source_with_local_files(plugin_root, marketplace_path))
 
     total_result.merge(validate_settings_json())
 
