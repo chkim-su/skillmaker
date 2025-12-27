@@ -61,10 +61,12 @@ Production-tested templates for Claude Code hooks (1.0.40+ schema).
 - Missing `"type": "command"`
 - Using non-existent `pattern` or `behavior` fields
 
+## Advanced Patterns
+
+- **Subagent filtering**: Parse `tool_input.subagent_type` for Task hooks
+- **Workflow gates**: Combine with `workflow-state-patterns` for state files
+- **Skill auto-activation**: Use `skill-activation-patterns` with UserPromptSubmit
+
 ## References
 
-- [Skill Activation Template](references/skill-activation.md)
-- [Post Tool Use Templates](references/post-tool-use.md)
-- [Pre Tool Use Templates](references/pre-tool-use.md)
-- [Stop Hook Templates](references/stop.md)
-- [Full Examples](references/full-examples.md)
+- [Full Examples](references/full-examples.md) - All templates with detailed code
