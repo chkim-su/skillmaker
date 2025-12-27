@@ -20,3 +20,4 @@ package-lock.json
 
 # Ignore problematic subdirectories
 claude-skill-maker/
+__pycache__/
