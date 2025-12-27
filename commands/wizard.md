@@ -4,6 +4,38 @@ argument-hint: "describe what to create (e.g., 'API skill', 'database agent')"
 allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob", "Task", "Skill", "AskUserQuestion"]
 ---
 
+# Complexity-Based Skill Loading
+
+Before routing, detect complexity level from input and load appropriate skills:
+
+| Level | Keywords | Auto-Load Skills |
+|-------|----------|------------------|
+| **Simple** | simple, basic, 단순, 기본 | skill-design |
+| **Standard** | standard, normal, 일반 | skill-design, orchestration-patterns, hook-templates |
+| **Advanced** | advanced, complex, enhanced, serena, mcp, 고급 | ALL pattern skills |
+
+If no complexity keyword found, ask:
+
+```yaml
+AskUserQuestion:
+  question: "프로젝트 복잡도를 선택하세요"
+  header: "Complexity"
+  options:
+    - label: "Simple"
+      description: "단일 skill, 기본 agent"
+    - label: "Standard (Recommended)"
+      description: "Multi-skill, Hook 포함"
+    - label: "Advanced"
+      description: "Serena Gateway + claude-mem + workflow gates"
+```
+
+After selection, load skills using Skill tool:
+- Simple: `Skill("skillmaker:skill-design")`
+- Standard: + `Skill("skillmaker:orchestration-patterns")`, `Skill("skillmaker:hook-templates")`
+- Advanced: + `Skill("skillmaker:mcp-gateway-patterns")`, `Skill("skillmaker:skill-activation-patterns")`
+
+---
+
 # Routing
 
 Analyze input. Match first pattern:

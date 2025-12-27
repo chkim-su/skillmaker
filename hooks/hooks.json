@@ -1,6 +1,17 @@
 {
   "$comment": "Skillmaker validation hooks - Updated to Claude Code 1.0.40+ schema",
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/skill-activation-hook.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Write",

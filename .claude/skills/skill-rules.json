@@ -1,0 +1,73 @@
+{
+  "version": "1.0",
+  "skills": {
+    "skill-design": {
+      "type": "domain",
+      "enforcement": "suggest",
+      "priority": "high",
+      "promptTriggers": {
+        "keywords": ["skill", "create skill", "new skill", "스킬"],
+        "intentPatterns": ["(create|make|build|add).*skill"]
+      }
+    },
+    "orchestration-patterns": {
+      "type": "domain",
+      "enforcement": "suggest",
+      "priority": "high",
+      "promptTriggers": {
+        "keywords": ["agent", "subagent", "orchestrator", "에이전트"],
+        "intentPatterns": ["(create|make|build).*agent"]
+      }
+    },
+    "mcp-gateway-patterns": {
+      "type": "domain",
+      "enforcement": "suggest",
+      "priority": "medium",
+      "promptTriggers": {
+        "keywords": ["serena", "mcp", "gateway", "isolation", "격리"],
+        "intentPatterns": ["(serena|mcp).*gateway", "code.*exploration"]
+      }
+    },
+    "hook-templates": {
+      "type": "domain",
+      "enforcement": "suggest",
+      "priority": "medium",
+      "promptTriggers": {
+        "keywords": ["hook", "automation", "trigger", "훅"],
+        "intentPatterns": ["(pre|post).*tool", "auto.*activation"]
+      }
+    },
+    "skill-activation-patterns": {
+      "type": "domain",
+      "enforcement": "suggest",
+      "priority": "medium",
+      "promptTriggers": {
+        "keywords": ["auto-activation", "skill-rules", "자동 활성화"],
+        "intentPatterns": ["auto.*(load|activate)", "skill.*rules"]
+      }
+    },
+    "workflow-state-patterns": {
+      "type": "domain",
+      "enforcement": "suggest",
+      "priority": "low",
+      "promptTriggers": {
+        "keywords": ["workflow", "state", "gate", "phase", "워크플로우"],
+        "intentPatterns": ["multi.*phase", "state.*machine"]
+      }
+    }
+  },
+  "complexity_levels": {
+    "simple": {
+      "keywords": ["simple", "basic", "단순", "기본"],
+      "auto_skills": ["skill-design"]
+    },
+    "standard": {
+      "keywords": ["standard", "normal", "일반"],
+      "auto_skills": ["skill-design", "orchestration-patterns", "hook-templates"]
+    },
+    "advanced": {
+      "keywords": ["advanced", "complex", "enhanced", "고급", "복잡"],
+      "auto_skills": ["skill-design", "orchestration-patterns", "mcp-gateway-patterns", "hook-templates", "skill-activation-patterns", "workflow-state-patterns"]
+    }
+  }
+}
