@@ -6,14 +6,14 @@
   "homepage": "https://github.com/chkim-su/skillmaker",
   "metadata": {
     "description": "Skillmaker: Create perfect skills and subagents that use them with isolated context",
-    "version": "2.2.3"
+    "version": "2.5.0"
   },
   "plugins": [
     {
       "name": "skillmaker",
       "description": "Create perfect skills and subagents that use them explicitly. Solve the context window problem with skill-based architecture.",
       "source": "./",
-      "version": "2.2.3",
+      "version": "2.5.0",
       "author": {
         "name": "Chanho KIM"
       },
@@ -21,7 +21,11 @@
       "skills": [
         "./skills/skill-design",
         "./skills/skill-catalog",
-        "./skills/orchestration-patterns"
+        "./skills/orchestration-patterns",
+        "./skills/mcp-gateway-patterns",
+        "./skills/workflow-state-patterns",
+        "./skills/skill-activation-patterns",
+        "./skills/hook-templates"
       ],
       "commands": [
         "./commands/wizard.md"
@@ -29,8 +33,11 @@
       "agents": [
         "./agents/skill-architect.md",
         "./agents/skill-converter.md",
-        "./agents/skill-orchestrator-designer.md"
-      ]
+        "./agents/skill-orchestrator-designer.md",
+        "./agents/mcp-gateway-designer.md",
+        "./agents/skill-rules-designer.md"
+      ],
+      "hooks": "./hooks/hooks.json"
     }
   ]
 }

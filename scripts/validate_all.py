@@ -89,6 +89,8 @@ class ErrorCode:
     E023 = "E023"  # Marketplace cache repo mismatch (known_marketplaces.json vs git remote)
     E024 = "E024"  # Marketplace cache stale (known_marketplaces.json entry but missing cache dir)
     E025 = "E025"  # plugin.json version doesn't match marketplace.json version
+    E026 = "E026"  # Duplicate plugin registration (same plugin from multiple marketplaces)
+    E027 = "E027"  # hooks.json schema invalid (Claude Code 1.0.40+ schema)
 
 
 # Schema patterns (regex)
@@ -807,13 +809,23 @@ def validate_path_arrays(plugin: dict, prefix: str, marketplace_path: Path) -> V
                 Fix(f'Fix path to "{correct}"', fix_path_format, marketplace_path, "skills", skill, correct)
             )
 
-    # Hooks: must be .json files
-    for i, hook in enumerate(plugin.get("hooks", [])):
-        if not isinstance(hook, str):
-            result.add_error(format_error(ErrorCode.E014, f"{prefix}.hooks[{i}] must be string"))
-            continue
-        if not SCHEMA["relative_path"].match(hook):
-            result.add_error(format_error(ErrorCode.E011, f'{prefix}.hooks[{i}] "{hook}" must start with "./"'))
+    # Hooks: single path string (NOT an array) - points to directory or .json file
+    hooks_path = plugin.get("hooks")
+    if hooks_path is not None:
+        if isinstance(hooks_path, str):
+            if not SCHEMA["relative_path"].match(hooks_path):
+                result.add_error(format_error(ErrorCode.E011, f'{prefix}.hooks "{hooks_path}" must start with "./"'))
+            # hooks can be a directory (./hooks) or a file (./hooks.json)
+            # Directory is preferred - it will look for hooks.json inside
+        elif isinstance(hooks_path, list):
+            # Old format was array - this is no longer supported
+            result.add_error(
+                format_error(ErrorCode.E014,
+                    f'{prefix}.hooks must be string path, not array. '
+                    f'Use: "hooks": "./hooks" (directory containing hooks.json)')
+            )
+        else:
+            result.add_error(format_error(ErrorCode.E014, f"{prefix}.hooks must be string path"))
 
     return result
 
@@ -1509,6 +1521,167 @@ def validate_plugin_json(plugin_root: Path) -> ValidationResult:
     return result
 
 
+def validate_hooks_json(plugin_root: Path) -> ValidationResult:
+    """
+    Validate hooks.json schema for Claude Code 1.0.40+ compatibility.
+
+    Schema requirements (1.0.40+):
+    - Top level has "hooks" object
+    - Event types: PreToolUse, PostToolUse, UserPromptSubmit, Stop
+    - Each event type is an array
+    - Each item has optional "matcher" (string, not object) for PreToolUse/PostToolUse
+    - Each item has "hooks" array (nested)
+    - Each hook has "type": "command" or "prompt"
+    - timeout is in seconds (1-600), not milliseconds
+
+    E027: hooks.json schema invalid
+    """
+    result = ValidationResult()
+
+    # Check both possible locations
+    hooks_locations = [
+        plugin_root / "hooks" / "hooks.json",
+        plugin_root / ".claude-plugin" / "hooks.json",
+    ]
+
+    hooks_json = None
+    for loc in hooks_locations:
+        if loc.exists():
+            hooks_json = loc
+            break
+
+    if hooks_json is None:
+        return result  # No hooks.json, skip validation
+
+    try:
+        data = json.loads(hooks_json.read_text(encoding='utf-8'))
+    except json.JSONDecodeError as e:
+        result.add_error(f"[E027] hooks.json: Invalid JSON: {e}")
+        return result
+
+    # Validate top-level structure
+    if "hooks" not in data:
+        result.add_error(
+            f'[E027] hooks.json: Missing required "hooks" object at top level. '
+            f'Schema changed in Claude Code 1.0.40+.'
+        )
+        return result
+
+    hooks = data.get("hooks", {})
+    if not isinstance(hooks, dict):
+        result.add_error(
+            f'[E027] hooks.json: "hooks" must be object, got {type(hooks).__name__}. '
+            f'Use format: {{"hooks": {{"PreToolUse": [...], ...}}}}'
+        )
+        return result
+
+    # Valid event types
+    VALID_EVENTS = {"PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop"}
+
+    for event_type, event_hooks in hooks.items():
+        if event_type.startswith("$"):
+            continue  # Skip meta fields like $schema_notes
+
+        if event_type not in VALID_EVENTS:
+            result.add_warning(
+                f'[E027] hooks.json: Unknown event type "{event_type}". '
+                f'Valid types: {", ".join(sorted(VALID_EVENTS))}'
+            )
+            continue
+
+        if not isinstance(event_hooks, list):
+            result.add_error(
+                f'[E027] hooks.json: hooks.{event_type} must be array, got {type(event_hooks).__name__}'
+            )
+            continue
+
+        for i, hook_group in enumerate(event_hooks):
+            prefix = f"hooks.{event_type}[{i}]"
+
+            if not isinstance(hook_group, dict):
+                result.add_error(f'[E027] hooks.json: {prefix} must be object')
+                continue
+
+            # Check matcher is string (not object)
+            if "matcher" in hook_group:
+                matcher = hook_group["matcher"]
+                if not isinstance(matcher, str):
+                    result.add_error(
+                        f'[E027] hooks.json: {prefix}.matcher must be string, got {type(matcher).__name__}. '
+                        f'Use: "matcher": "Edit|Write" (NOT {{"tool_name": "..."}})'
+                    )
+
+            # Check nested hooks array exists
+            if "hooks" not in hook_group:
+                result.add_error(
+                    f'[E027] hooks.json: {prefix}.hooks array is required. '
+                    f'Add: "hooks": [{{"type": "command", "command": "..."}}]'
+                )
+                continue
+
+            nested_hooks = hook_group.get("hooks", [])
+            if not isinstance(nested_hooks, list):
+                result.add_error(
+                    f'[E027] hooks.json: {prefix}.hooks must be array, got {type(nested_hooks).__name__}'
+                )
+                continue
+
+            for j, hook in enumerate(nested_hooks):
+                hook_prefix = f"{prefix}.hooks[{j}]"
+
+                if not isinstance(hook, dict):
+                    result.add_error(f'[E027] hooks.json: {hook_prefix} must be object')
+                    continue
+
+                # Check type field exists
+                if "type" not in hook:
+                    result.add_error(
+                        f'[E027] hooks.json: {hook_prefix}.type is required. '
+                        f'Use "type": "command" or "type": "prompt"'
+                    )
+
+                hook_type = hook.get("type", "")
+                if hook_type not in ("command", "prompt", ""):
+                    result.add_error(
+                        f'[E027] hooks.json: {hook_prefix}.type must be "command" or "prompt", got "{hook_type}"'
+                    )
+
+                # Check command exists for command type
+                if hook_type == "command" and "command" not in hook:
+                    result.add_error(
+                        f'[E027] hooks.json: {hook_prefix}.command is required when type is "command"'
+                    )
+
+                # Check timeout is in seconds (not milliseconds)
+                if "timeout" in hook:
+                    timeout = hook["timeout"]
+                    if isinstance(timeout, (int, float)):
+                        if timeout > 600:
+                            result.add_warning(
+                                f'[E027] hooks.json: {hook_prefix}.timeout={timeout} seems like milliseconds. '
+                                f'Claude Code 1.0.40+ uses seconds. Use timeout: {timeout // 1000} instead.'
+                            )
+                        elif timeout < 1:
+                            result.add_warning(
+                                f'[E027] hooks.json: {hook_prefix}.timeout={timeout} is very short. '
+                                f'Minimum recommended: 1 second.'
+                            )
+
+            # Check for removed/invalid fields at hook_group level
+            invalid_fields = {"pattern", "behavior", "onError", "input_contains", "output_contains"}
+            found_invalid = set(hook_group.keys()) & invalid_fields
+            if found_invalid:
+                result.add_warning(
+                    f'[E027] hooks.json: {prefix} has unsupported fields: {", ".join(found_invalid)}. '
+                    f'These were removed in Claude Code 1.0.40+.'
+                )
+
+    if not result.errors and not result.warnings:
+        result.add_pass("hooks.json: valid (Claude Code 1.0.40+ schema)")
+
+    return result
+
+
 def validate_scripts(plugin_root: Path) -> ValidationResult:
     """Validate script files have shebang and are executable."""
     result = ValidationResult()
@@ -1549,6 +1722,7 @@ def validate_settings_json() -> ValidationResult:
     - E022: extraKnownMarketplaces source.source must be valid discriminator
             (Note: discriminator field name is "source", not "type")
             Valid values: 'url' | 'github' | 'git' | 'npm' | 'file' | 'directory'
+    - E026: Duplicate plugin registration (same plugin from multiple marketplaces)
     """
     result = ValidationResult()
     home = Path.home()
@@ -1578,6 +1752,28 @@ def validate_settings_json() -> ValidationResult:
                     f'[E021] settings.json: enabledPlugins must be an object {{"plugin@marketplace": true}}, '
                     f'not an array. Found: {type(enabled_plugins).__name__}'
                 )
+
+        # E026: Check for duplicate plugin registrations
+        if enabled_plugins is not None and isinstance(enabled_plugins, dict):
+            # Group plugins by name (extract from plugin@marketplace format)
+            plugin_registrations: Dict[str, List[str]] = {}
+            for plugin_ref, enabled in enabled_plugins.items():
+                if not enabled:
+                    continue
+                if "@" in plugin_ref:
+                    plugin_name, marketplace = plugin_ref.rsplit("@", 1)
+                    if plugin_name not in plugin_registrations:
+                        plugin_registrations[plugin_name] = []
+                    plugin_registrations[plugin_name].append(plugin_ref)
+
+            # Report duplicates
+            for plugin_name, refs in plugin_registrations.items():
+                if len(refs) > 1:
+                    result.add_warning(
+                        f'[E026] settings.json: Plugin "{plugin_name}" is registered multiple times: '
+                        f'{", ".join(refs)}. '
+                        f'This may cause loading conflicts. Consider removing duplicates.'
+                    )
 
         plugins = settings.get("plugins", [])
         for i, plugin in enumerate(plugins):
@@ -2165,8 +2361,25 @@ def validate_component_locations(plugin_root: Path, marketplace_path: Path) -> V
                             ))
                         else:
                             result.add_pass(f'skills: "{item_path}" structure valid')
+                    elif component_type == "hooks":
+                        # Hooks: directory with hooks.json OR direct .json file
+                        if full_path.is_dir():
+                            hooks_file = full_path / "hooks.json"
+                            if hooks_file.exists():
+                                result.add_pass(f'hooks: "{item_path}/hooks.json" exists')
+                            else:
+                                result.add_warning(
+                                    f'hooks: "{item_path}" directory exists but missing hooks.json'
+                                )
+                        elif full_path.is_file():
+                            if item_path.endswith(".json"):
+                                result.add_pass(f'hooks: "{item_path}" exists')
+                            else:
+                                result.add_warning(
+                                    f'hooks: "{item_path}" should be .json file or directory containing hooks.json'
+                                )
                     else:
-                        # Commands, agents, hooks should be files
+                        # Commands, agents should be .md files
                         if full_path.is_dir():
                             result.add_error(format_error(
                                 ErrorCode.E003 if component_type == "commands" else ErrorCode.E004,
@@ -2802,6 +3015,9 @@ def main():
 
     # Validate plugin.json if it exists
     total_result.merge(validate_plugin_json(plugin_root))
+
+    # E027: Validate hooks.json schema (Claude Code 1.0.40+)
+    total_result.merge(validate_hooks_json(plugin_root))
 
     # ==========================================================================
     # PHASE 3: Best Practices (warnings only)

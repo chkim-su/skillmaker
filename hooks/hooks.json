@@ -1,233 +1,99 @@
 {
-  "$comment": "Skillmaker validation hooks - MANDATORY schema validation at ALL checkpoints",
+  "$comment": "Skillmaker validation hooks - Updated to Claude Code 1.0.40+ schema",
   "hooks": {
     "PreToolUse": [
       {
         "matcher": "Write",
-        "pattern": "marketplace\\.json$",
-        "command": "echo '[PRE-WRITE] Validating before marketplace.json creation...'",
-        "behavior": "notify",
-        "timeout": 5000,
-        "description": "NOTIFY: About to write marketplace.json"
-      },
-      {
-        "matcher": "Write",
-        "pattern": "plugin\\.json$",
-        "command": "echo '[PRE-WRITE] Validating before plugin.json creation...'",
-        "behavior": "notify",
-        "timeout": 5000,
-        "description": "NOTIFY: About to write plugin.json"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py\" --skip-git --pre-edit --quiet",
+            "timeout": 15
+          }
+        ]
       },
       {
         "matcher": "Edit",
-        "pattern": "marketplace\\.json$",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git --pre-edit",
-        "behavior": "block",
-        "timeout": 15000,
-        "description": "BLOCK: Validate current state before editing marketplace.json"
-      },
-      {
-        "matcher": "Edit",
-        "pattern": "plugin\\.json$",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git --pre-edit",
-        "behavior": "block",
-        "timeout": 15000,
-        "description": "BLOCK: Validate current state before editing plugin.json"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py\" --skip-git --pre-edit --quiet",
+            "timeout": 15
+          }
+        ]
       },
       {
         "matcher": "Bash",
-        "pattern": "git commit",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
-        "behavior": "block",
-        "timeout": 30000,
-        "description": "BLOCK: Full schema validation before git commit"
-      },
-      {
-        "matcher": "Bash",
-        "pattern": "git push",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py",
-        "behavior": "block",
-        "timeout": 45000,
-        "description": "BLOCK: Full validation (including remote check) before git push"
-      },
-      {
-        "matcher": "Bash",
-        "pattern": "claude marketplace add",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py",
-        "behavior": "block",
-        "timeout": 30000,
-        "description": "BLOCK: Full validation before marketplace installation"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py\" --skip-git",
+            "timeout": 30
+          }
+        ]
       },
       {
         "matcher": "Skill",
-        "pattern": "wizard|publish|validate",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git --quiet",
-        "behavior": "notify",
-        "timeout": 15000,
-        "description": "NOTIFY: Schema check before skillmaker skill execution"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py\" --skip-git --quiet",
+            "timeout": 15
+          }
+        ]
       }
     ],
     "PostToolUse": [
       {
         "matcher": "Write",
-        "pattern": "marketplace\\.json$",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git --schema-only",
-        "behavior": "block",
-        "timeout": 15000,
-        "description": "BLOCK: Immediate schema validation after marketplace.json write"
-      },
-      {
-        "matcher": "Write",
-        "pattern": "plugin\\.json$",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git --schema-only",
-        "behavior": "block",
-        "timeout": 15000,
-        "description": "BLOCK: Immediate schema validation after plugin.json write"
-      },
-      {
-        "matcher": "Write",
-        "pattern": "agents/.*\\.md$",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
-        "behavior": "block",
-        "timeout": 15000,
-        "description": "BLOCK: Validate after agent creation"
-      },
-      {
-        "matcher": "Write",
-        "pattern": "commands/.*\\.md$",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
-        "behavior": "block",
-        "timeout": 15000,
-        "description": "BLOCK: Validate after command creation"
-      },
-      {
-        "matcher": "Write",
-        "pattern": "skills/.*/SKILL\\.md$",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
-        "behavior": "block",
-        "timeout": 15000,
-        "description": "BLOCK: Validate after skill creation"
-      },
-      {
-        "matcher": "Write",
-        "pattern": "hooks/.*\\.json$",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
-        "behavior": "block",
-        "timeout": 15000,
-        "description": "BLOCK: Validate after hooks.json creation/modification"
-      },
-      {
-        "matcher": "Write",
-        "pattern": "\\.mcp\\.json$",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
-        "behavior": "block",
-        "timeout": 15000,
-        "description": "BLOCK: Validate after .mcp.json creation/modification"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py\" --skip-git --schema-only",
+            "timeout": 15
+          }
+        ]
       },
       {
         "matcher": "Edit",
-        "pattern": "marketplace\\.json$",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git --schema-only",
-        "behavior": "block",
-        "timeout": 15000,
-        "description": "BLOCK: Immediate schema validation after marketplace.json edit"
-      },
-      {
-        "matcher": "Edit",
-        "pattern": "plugin\\.json$",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git --schema-only",
-        "behavior": "block",
-        "timeout": 15000,
-        "description": "BLOCK: Immediate schema validation after plugin.json edit"
-      },
-      {
-        "matcher": "Edit",
-        "pattern": "agents/.*\\.md$",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
-        "behavior": "block",
-        "timeout": 15000,
-        "description": "BLOCK: Validate after agent modification"
-      },
-      {
-        "matcher": "Edit",
-        "pattern": "commands/.*\\.md$",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
-        "behavior": "block",
-        "timeout": 15000,
-        "description": "BLOCK: Validate after command modification"
-      },
-      {
-        "matcher": "Edit",
-        "pattern": "skills/.*/SKILL\\.md$",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
-        "behavior": "block",
-        "timeout": 15000,
-        "description": "BLOCK: Validate after skill modification"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py\" --skip-git --schema-only",
+            "timeout": 15
+          }
+        ]
       },
       {
         "matcher": "Task",
-        "pattern": "skill-architect|skill-converter|skill-orchestrator|plugin-validator",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
-        "behavior": "block",
-        "timeout": 20000,
-        "description": "BLOCK: Validate after skillmaker agent completes"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py\" --skip-git",
+            "timeout": 20
+          }
+        ]
       },
       {
         "matcher": "Skill",
-        "pattern": "wizard|create-plugin",
-        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --skip-git",
-        "behavior": "block",
-        "timeout": 20000,
-        "description": "BLOCK: Validate after skillmaker skill completes"
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py\" --skip-git",
+            "timeout": 20
+          }
+        ]
       }
     ]
   },
-  "$schema_validation_flags": {
-    "--skip-git": "Skip git status checks (for faster validation during edits)",
-    "--schema-only": "Only run schema validation (fastest, for immediate feedback)",
-    "--pre-edit": "Validate current state before modification",
-    "--quiet": "Minimal output, only show errors"
-  },
-  "$checkpoint_coverage": {
-    "CREATE": {
-      "marketplace.json": "PostToolUse:Write → schema-only validation",
-      "plugin.json": "PostToolUse:Write → schema-only validation",
-      "agents/*.md": "PostToolUse:Write → full validation",
-      "commands/*.md": "PostToolUse:Write → full validation",
-      "skills/*/SKILL.md": "PostToolUse:Write → full validation",
-      "hooks/*.json": "PostToolUse:Write → full validation",
-      ".mcp.json": "PostToolUse:Write → full validation"
-    },
-    "MODIFY": {
-      "marketplace.json": "PreToolUse:Edit (current state) + PostToolUse:Edit (new state)",
-      "plugin.json": "PreToolUse:Edit (current state) + PostToolUse:Edit (new state)",
-      "components": "PostToolUse:Edit → full validation"
-    },
-    "DEPLOY": {
-      "git commit": "PreToolUse:Bash → full validation (skip git)",
-      "git push": "PreToolUse:Bash → full validation (including remote)",
-      "marketplace add": "PreToolUse:Bash → full validation"
-    },
-    "AGENTS": {
-      "skillmaker agents": "PostToolUse:Task → full validation",
-      "wizard skill": "PostToolUse:Skill → full validation"
-    }
-  },
-  "$instructions": {
-    "installation": [
-      "1. Copy this hooks section to ~/.claude/settings.json",
-      "2. Set CLAUDE_PLUGIN_ROOT environment variable, OR",
-      "3. Replace ${CLAUDE_PLUGIN_ROOT} with absolute path to skillmaker",
-      "4. Restart Claude Code to apply hooks"
-    ],
-    "behavior_options": {
-      "block": "STOPS the operation if validation fails - MANDATORY for schema integrity",
-      "notify": "Shows warning but allows operation - use sparingly"
-    },
-    "validation_levels": {
-      "schema-only": "Fast - only JSON schema validation (~1s)",
-      "skip-git": "Medium - schema + files + patterns (~2s)",
-      "full": "Complete - includes git status and remote checks (~5s)"
+  "$schema_notes": {
+    "schema_version": "Claude Code 1.0.40+",
+    "timeout_unit": "seconds (not milliseconds)",
+    "validation_flags": {
+      "--skip-git": "Skip git status checks (faster)",
+      "--schema-only": "Only JSON schema validation (fastest)",
+      "--pre-edit": "Validate current state before modification",
+      "--quiet": "Minimal output, errors only"
     }
   }
 }

@@ -72,24 +72,33 @@ def check_local_registration(plugin_path: Path, settings_path: Path) -> dict:
 
     for key, config in extra_marketplaces.items():
         source = config.get("source", {})
-        if source.get("source") == "local":
+        if source.get("source") == "directory":
             path = source.get("path", "")
             if normalize_path(path) == plugin_path_normalized:
                 registered_key = key
                 registered_path = path
                 break
 
-    # Check enabledPlugins
-    enabled_plugins = settings.get("enabledPlugins", [])
+    # Check enabledPlugins (supports both dict and list formats)
+    enabled_plugins = settings.get("enabledPlugins", {})
     is_enabled = False
     enabled_ref = None
 
     if registered_key:
-        for plugin_ref in enabled_plugins:
-            if f"@{registered_key}" in plugin_ref:
-                is_enabled = True
-                enabled_ref = plugin_ref
-                break
+        # Handle both dict format (new) and list format (legacy)
+        if isinstance(enabled_plugins, dict):
+            for plugin_ref, enabled in enabled_plugins.items():
+                if f"@{registered_key}" in plugin_ref and enabled:
+                    is_enabled = True
+                    enabled_ref = plugin_ref
+                    break
+        else:
+            # Legacy list format
+            for plugin_ref in enabled_plugins:
+                if f"@{registered_key}" in plugin_ref:
+                    is_enabled = True
+                    enabled_ref = plugin_ref
+                    break
 
     return {
         "is_registered": registered_key is not None,

@@ -29,32 +29,44 @@ cat ~/.claude/settings.json
 type %USERPROFILE%\.claude\settings.json
 ```
 
-### settings.json Example
+### settings.json Example (Claude Code 1.0.40+)
 
 ```json
 {
-  "hooks": [
-    {
-      "event": "PreToolUse",
-      "matcher": {
-        "tool_name": "Bash",
-        "query": "git commit"
-      },
-      "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py",
-      "blocking": true
-    },
-    {
-      "event": "PreToolUse",
-      "matcher": {
-        "tool_name": "Bash",
-        "query": "git push"
-      },
-      "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py",
-      "blocking": true
-    }
-  ]
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py\" --skip-git",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py\" --skip-git --schema-only",
+            "timeout": 15
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
+
+**Schema Requirements:**
+- `matcher`: String (tool name pattern), NOT an object
+- `hooks`: Required nested array
+- `type`: Required field (`"command"` or `"prompt"`)
+- `timeout`: In **seconds** (not milliseconds)
 
 ## Validation Layers
 
