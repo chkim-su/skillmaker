@@ -47,7 +47,8 @@ Analyze input. Match first pattern:
 | `convert\|from.*code\|skillization\|변환` | => SKILL_FROM_CODE |
 | `agent\|에이전트\|subagent` | => AGENT |
 | `command\|workflow\|명령어` | => COMMAND |
-| `validate\|check\|검증\|분석\|상태\|status\|analyze` | => VALIDATE |
+| `analyze\|분석\|리뷰\|review` | => ANALYZE |
+| `validate\|check\|검증\|상태\|status` | => VALIDATE |
 | `publish\|deploy\|배포` | => PUBLISH |
 | `register\|local\|등록\|로컬` | => LOCAL_REGISTER |
 | no match / empty | => MENU |
@@ -72,13 +73,15 @@ AskUserQuestion:
       description: "Create subagent with skills"
     - label: "Command"
       description: "Create workflow command"
+    - label: "Analyze"
+      description: "Comprehensive analysis (validation + design principles)"
     - label: "Validate"
-      description: "Check for errors"
+      description: "Quick schema/path validation only"
     - label: "Publish"
       description: "Deploy to marketplace (after testing)"
 ```
 
-Route: New Project=>PROJECT_INIT, Skill=>SKILL, Agent=>AGENT, Command=>COMMAND, Validate=>VALIDATE, Publish=>PUBLISH
+Route: New Project=>PROJECT_INIT, Skill=>SKILL, Agent=>AGENT, Command=>COMMAND, Analyze=>ANALYZE, Validate=>VALIDATE, Publish=>PUBLISH
 
 ---
 
@@ -391,6 +394,79 @@ AskUserQuestion:
    Same as SKILL step 5. **MUST pass before proceeding.**
 
 7. After validation passes, show next steps (same as SKILL step 6)
+
+---
+
+# ANALYZE
+
+**Purpose**: Context-aware project analysis combining validation with design principles review.
+
+## Approach: Adaptive Analysis
+
+Do NOT follow a fixed checklist. Instead:
+
+1. **Understand Context First**
+   - What type of project is this? (plugin, skill library, agent suite)
+   - What is its primary purpose?
+   - What complexity level? (simple/standard/advanced)
+
+2. **Run Base Validation**
+   ```bash
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
+   ```
+
+3. **Analyze Based on Project Type**
+
+   | Project Type | Focus Areas |
+   |--------------|-------------|
+   | **Skill library** | Skill design principles, SKILL.md quality, references separation |
+   | **Agent suite** | Orchestration patterns, context isolation, Skill() tool usage |
+   | **Full plugin** | All above + hookify compliance, deployment readiness |
+   | **MCP integration** | Gateway patterns, isolation strategy, subprocess safety |
+
+4. **Check Relevant Principles Only**
+
+   Load skills dynamically based on what's relevant:
+   - If has skills/ directory → `Skill("skillmaker:skill-design")` analysis
+   - If has agents/ directory → `Skill("skillmaker:orchestration-patterns")` analysis
+   - If has hooks/ directory → Hookify compliance check
+   - If uses MCP → `Skill("skillmaker:mcp-gateway-patterns")` analysis
+
+5. **Contextual Improvement Suggestions**
+
+   Based on actual findings, suggest:
+   - Architecture improvements specific to this project
+   - Missing patterns that would benefit this use case
+   - Complexity reduction opportunities
+
+## Output Format
+
+```markdown
+## 프로젝트 분석: {project-name}
+
+### 프로젝트 이해
+- 타입: {detected type}
+- 복잡도: {simple/standard/advanced}
+- 주요 목적: {purpose}
+
+### 검증 결과
+{validation output}
+
+### 설계 원칙 분석
+{context-specific analysis based on project type}
+
+### 개선 제안
+{specific, actionable suggestions based on actual findings}
+```
+
+## Key Difference from VALIDATE
+
+| VALIDATE | ANALYZE |
+|----------|---------|
+| Fixed script execution | Adaptive to project type |
+| Schema/path checking only | Design principles included |
+| Pass/fail binary | Nuanced insights |
+| Technical correctness | Architectural quality |
 
 ---
 
