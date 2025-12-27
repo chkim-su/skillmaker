@@ -815,14 +815,15 @@ def validate_path_arrays(plugin: dict, prefix: str, marketplace_path: Path) -> V
         if isinstance(hooks_path, str):
             if not SCHEMA["relative_path"].match(hooks_path):
                 result.add_error(format_error(ErrorCode.E011, f'{prefix}.hooks "{hooks_path}" must start with "./"'))
-            # hooks can be a directory (./hooks) or a file (./hooks.json)
-            # Directory is preferred - it will look for hooks.json inside
+            # hooks must be a file path ending with .json (e.g., ./hooks/hooks.json)
+            if not hooks_path.endswith('.json'):
+                result.add_error(format_error(ErrorCode.E014, f'{prefix}.hooks must end with ".json" (e.g., "./hooks/hooks.json")'))
         elif isinstance(hooks_path, list):
             # Old format was array - this is no longer supported
             result.add_error(
                 format_error(ErrorCode.E014,
                     f'{prefix}.hooks must be string path, not array. '
-                    f'Use: "hooks": "./hooks" (directory containing hooks.json)')
+                    f'Use: "hooks": "./hooks/hooks.json"')
             )
         else:
             result.add_error(format_error(ErrorCode.E014, f"{prefix}.hooks must be string path"))
