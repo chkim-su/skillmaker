@@ -164,12 +164,24 @@ For workflows requiring sequential phases:
 2. **Gateway** executes MCP operation
 3. **PostToolUse hook** creates state file on success
 
-Example hook trigger pattern:
+Example hook configuration (Claude Code 1.0.40+):
 ```json
 {
-  "matcher": "Task",
-  "pattern": "serena-gateway.*MODIFY",
-  "behavior": "block",
-  "command": "test -f .analysis-done && test -f .plan-approved"
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 scripts/gateway-gate.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
+
+Gate script filters by `tool_input.subagent_type` and checks state files before MODIFY operations.
