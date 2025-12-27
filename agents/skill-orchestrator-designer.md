@@ -13,15 +13,17 @@ color: green
 |------|----------|---------|
 | Single-Skill Consumer | Focused, single-domain | SQL specialist |
 | Multi-Skill Orchestrator | Multi-domain workflow | Fullstack agent |
+| Enhanced Agent | Complex + codebase aware + memory | Smart fullstack agent |
 
 ---
 
 # Process
 
-## Phase 1: Clarify (2 questions)
+## Phase 1: Clarify (3 questions)
 
 1. What is the agent's main purpose?
 2. Single-domain or multi-domain?
+3. Need codebase exploration + session memory? (→ Enhanced Agent)
 
 ## Phase 2: Discover Skills
 
@@ -42,6 +44,12 @@ Show categorized list to user.
 - Coordinates multiple domains
 - Switches between skills
 - Workflow spans expertise areas
+
+**Enhanced** if:
+- Needs codebase exploration (Serena Gateway)
+- Requires cross-session memory (claude-mem)
+- Should auto-discover relevant skills
+- Complex, long-running work
 
 ## Phase 4: Create Agent
 
@@ -103,6 +111,59 @@ Coordinate {workflow} using multiple skills.
 3. Coordinate if multi-domain
 4. Integrate outputs
 ```
+
+---
+
+# Enhanced Agent Template
+
+```yaml
+---
+name: {domain}-smart-agent
+description: Enhanced {domain} agent with codebase awareness and memory
+tools: [Read, Write, Bash, Task, Skill, Grep, Glob]
+skills: skill-catalog, {domain-skills}
+model: sonnet
+color: purple
+---
+```
+
+```markdown
+# {Domain} Smart Agent
+
+## Initialization
+On session start:
+1. Load recent context from claude-mem (project: {project-name})
+2. Activate Serena project if needed
+
+## Request Handling
+
+### Phase 1: Context
+- claude-mem search for relevant past work
+
+### Phase 2: Explore
+- Serena Gateway QUERY: search codebase for relevant patterns
+
+### Phase 3: Skill Discovery
+- Match findings against skill-rules.json
+- Auto-call matched skills via Skill tool
+
+### Phase 4: Execute
+- Complete task with loaded skills
+
+### Phase 5: Store
+- Save observation to claude-mem
+
+## Skill Matching
+| Finding Pattern | Skill |
+|-----------------|-------|
+| {pattern1} | {skill1} |
+| {pattern2} | {skill2} |
+```
+
+**Requirements:**
+- serena-refactor plugin (for Serena Gateway)
+- claude-mem MCP (for context persistence)
+- skill-rules.json configured
 
 ---
 

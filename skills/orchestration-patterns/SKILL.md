@@ -72,6 +72,61 @@ Skills load automatically when subagent starts. No explicit activation needed.
 
 ---
 
+## Pattern 3: Enhanced Agent (with Codebase Bridge + Memory)
+
+**Use when**: Complex tasks requiring codebase understanding and session continuity
+
+```yaml
+---
+name: smart-orchestrator
+skills: domain-skill-1, domain-skill-2
+tools: [Read, Write, Bash, Task, Skill]
+model: sonnet
+---
+```
+
+```
+Session Start
+    ↓
+claude-mem: load recent context
+    ↓
+User Request
+    ↓
+Serena Gateway: explore codebase (QUERY)
+    ↓
+Match findings → skill-rules.json
+    ↓
+Auto-call relevant skills
+    ↓
+Execute task
+    ↓
+claude-mem: store observation
+```
+
+✅ Smart skill discovery via codebase analysis
+✅ Cross-session memory persistence
+✅ Reduces manual skill selection
+❌ Requires Serena + claude-mem setup
+
+**Key Components:**
+1. **Serena Gateway** - Codebase exploration bridge (see `mcp-gateway-patterns`)
+2. **skill-rules.json** - Trigger patterns (see `skill-activation-patterns`)
+3. **claude-mem** - Context persistence (see `references/enhanced-agent.md`)
+
+---
+
+# Decision Matrix
+
+| Question | Single-Skill | Multi-Skill | Enhanced |
+|----------|--------------|-------------|----------|
+| Scope? | Narrow | Broad | Broad + Smart |
+| Skills needed? | 1 | 2+ | 2+ (auto-discovered) |
+| Coordination? | No | Yes | Yes + Auto |
+| Memory? | No | No | Yes (claude-mem) |
+| Codebase Aware? | No | No | Yes (Serena) |
+
+---
+
 # Best Practices
 
 **Single-Skill:**
@@ -84,3 +139,10 @@ Skills load automatically when subagent starts. No explicit activation needed.
 - Include Task tool
 - Document when to use each skill
 - "Don't activate all skills for simple requests"
+
+**Enhanced:**
+- Name: `{domain}-smart-agent`
+- Include Task + Skill tools
+- Add Serena Gateway for exploration
+- Document claude-mem project name
+- "Explore codebase before selecting skills"
