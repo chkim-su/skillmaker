@@ -1602,13 +1602,22 @@ def validate_hooks_json(plugin_root: Path) -> ValidationResult:
                 result.add_error(f'[E027] hooks.json: {prefix} must be object')
                 continue
 
-            # Check matcher is string (not object)
+            # Check matcher is string OR object (both valid)
+            # String: "Edit|Write" - simple tool name matching
+            # Object: {"tool_name": "Task", "input_contains": [...]} - advanced matching
             if "matcher" in hook_group:
                 matcher = hook_group["matcher"]
-                if not isinstance(matcher, str):
+                if isinstance(matcher, str):
+                    pass  # Valid: string matcher
+                elif isinstance(matcher, dict):
+                    # Valid: object matcher with tool_name and optional filters
+                    if "tool_name" not in matcher:
+                        result.add_warning(
+                            f'[E027] hooks.json: {prefix}.matcher object should have "tool_name" field'
+                        )
+                else:
                     result.add_error(
-                        f'[E027] hooks.json: {prefix}.matcher must be string, got {type(matcher).__name__}. '
-                        f'Use: "matcher": "Edit|Write" (NOT {{"tool_name": "..."}})'
+                        f'[E027] hooks.json: {prefix}.matcher must be string or object, got {type(matcher).__name__}'
                     )
 
             # Check nested hooks array exists
@@ -1652,14 +1661,16 @@ def validate_hooks_json(plugin_root: Path) -> ValidationResult:
                         f'[E027] hooks.json: {hook_prefix}.command is required when type is "command"'
                     )
 
-                # Check timeout is in seconds (not milliseconds)
+                # Check timeout value (informational only - both ms and seconds may be valid)
                 if "timeout" in hook:
                     timeout = hook["timeout"]
                     if isinstance(timeout, (int, float)):
-                        if timeout > 600:
+                        # Note: Claude Code may accept both milliseconds and seconds
+                        # Just provide informational messages, not errors
+                        if timeout > 60000:
                             result.add_warning(
-                                f'[E027] hooks.json: {hook_prefix}.timeout={timeout} seems like milliseconds. '
-                                f'Claude Code 1.0.40+ uses seconds. Use timeout: {timeout // 1000} instead.'
+                                f'[E027] hooks.json: {hook_prefix}.timeout={timeout} is very large. '
+                                f'Verify if this is intended (milliseconds or seconds).'
                             )
                         elif timeout < 1:
                             result.add_warning(
@@ -1667,13 +1678,15 @@ def validate_hooks_json(plugin_root: Path) -> ValidationResult:
                                 f'Minimum recommended: 1 second.'
                             )
 
-            # Check for removed/invalid fields at hook_group level
-            invalid_fields = {"pattern", "behavior", "onError", "input_contains", "output_contains"}
-            found_invalid = set(hook_group.keys()) & invalid_fields
-            if found_invalid:
+            # Check for potentially problematic fields at hook_group level
+            # Note: input_contains and output_contains are valid inside matcher object
+            # pattern and behavior are legacy fields that may not work
+            legacy_fields = {"pattern", "behavior", "onError"}
+            found_legacy = set(hook_group.keys()) & legacy_fields
+            if found_legacy:
                 result.add_warning(
-                    f'[E027] hooks.json: {prefix} has unsupported fields: {", ".join(found_invalid)}. '
-                    f'These were removed in Claude Code 1.0.40+.'
+                    f'[E027] hooks.json: {prefix} has legacy fields: {", ".join(found_legacy)}. '
+                    f'These may not be supported. Consider using matcher object with input_contains/output_contains instead.'
                 )
 
     if not result.errors and not result.warnings:

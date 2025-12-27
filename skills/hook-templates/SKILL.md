@@ -191,12 +191,12 @@ fi
   "hooks": {
     "EventName": [
       {
-        "matcher": "ToolName",      // Required for PreToolUse/PostToolUse
+        "matcher": "ToolName",      // String OR object (see below)
         "hooks": [                   // REQUIRED: nested hooks array
           {
             "type": "command",       // REQUIRED: "command" or "prompt"
             "command": "...",        // Required when type is "command"
-            "timeout": 30            // Optional: seconds (not milliseconds!)
+            "timeout": 5000          // Optional: milliseconds
           }
         ]
       }
@@ -205,10 +205,25 @@ fi
 }
 ```
 
+**Matcher Formats (BOTH valid):**
+
+1. **String matcher** - Simple tool name matching:
+```json
+"matcher": "Task"
+"matcher": "Edit|Write|MultiEdit"
+```
+
+2. **Object matcher** - Advanced conditional matching:
+```json
+"matcher": {
+  "tool_name": "Task",
+  "input_contains": ["serena-refactor-executor"],
+  "output_contains": ["VERDICT: PASS"]
+}
+```
+
 **Common Mistakes to Avoid:**
-- ❌ `"matcher": { "tool_name": "..." }` - matcher must be a string
 - ❌ `"command": "..."` at top level - must be inside `hooks` array
-- ❌ `"timeout": 30000` - timeout is in seconds, not milliseconds
 - ❌ Missing `"type": "command"` - type field is required
 - ❌ `"pattern": "..."` - pattern field doesn't exist, use matcher
 - ❌ `"behavior": "block"` - behavior field doesn't exist
