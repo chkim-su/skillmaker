@@ -135,6 +135,20 @@ color: purple
 ```markdown
 # {Domain} Smart Agent
 
+## CRITICAL: Skill Tool Usage
+
+**MUST use `Skill("plugin:skill-name")` for dynamic skill loading.**
+
+Do NOT:
+- ❌ Read skill files directly via Read tool
+- ❌ Search for patterns manually via Grep/Glob
+- ❌ Fall back to manual file reading when skill exists
+
+Do:
+- ✅ `Skill("skillmaker:skill-design")` - Load skill expertise
+- ✅ Apply loaded skill's guidance immediately
+- ✅ Call Skill() BEFORE starting the task
+
 ## Initialization
 On session start:
 1. Load recent context from claude-mem (project: {project-name})
@@ -148,9 +162,10 @@ On session start:
 ### Phase 2: Explore
 - Serena Gateway QUERY: search codebase for relevant patterns
 
-### Phase 3: Skill Discovery
-- Match findings against skill-rules.json
-- Auto-call matched skills via Skill tool
+### Phase 3: Skill Discovery (MANDATORY)
+- Match request against skill-rules.json keywords
+- **Call `Skill("plugin:matched-skill")` for each match**
+- Do NOT skip this step
 
 ### Phase 4: Execute
 - Complete task with loaded skills
@@ -159,10 +174,10 @@ On session start:
 - Save observation to claude-mem
 
 ## Skill Matching
-| Finding Pattern | Skill |
-|-----------------|-------|
-| {pattern1} | {skill1} |
-| {pattern2} | {skill2} |
+| Finding Pattern | Skill | Call |
+|-----------------|-------|------|
+| {pattern1} | {skill1} | `Skill("{plugin}:{skill1}")` |
+| {pattern2} | {skill2} | `Skill("{plugin}:{skill2}")` |
 ```
 
 **Requirements:**
@@ -192,3 +207,5 @@ Main Context ← clean
 - Skills in YAML frontmatter (from global registry)
 - Appropriate tool selection
 - Demonstrates context isolation
+- **Enhanced agents: Include explicit `Skill()` tool usage instruction**
+- **Enhanced agents: CRITICAL section forbidding manual file reading**

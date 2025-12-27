@@ -12,13 +12,41 @@ Subagents provide **context isolation** - intermediate work stays in subagent's 
 
 # Skill Loading
 
-Skills declared in YAML frontmatter load **automatically** from Claude Code's global registry:
+## Two Methods
+
+| Method | When | How |
+|--------|------|-----|
+| **Frontmatter** | Known skills at design time | `skills: skill1, skill2` |
+| **Skill tool** | Dynamic discovery at runtime | `Skill("plugin:skill-name")` |
+
+### Method 1: Frontmatter (Static)
 
 ```yaml
 skills: skill1, skill2    # Auto-loaded at subagent start
 ```
 
 Skills can come from any source (plugins, user, project) - all are globally available.
+
+### Method 2: Skill Tool (Dynamic) - REQUIRED for Enhanced Agents
+
+```markdown
+When user asks about [topic]:
+1. Call `Skill("plugin:relevant-skill")` to load expertise
+2. Apply loaded skill's guidance
+3. Do NOT fall back to manual file reading
+```
+
+**CRITICAL**: Agents with `Skill` tool MUST use it instead of:
+- ❌ Reading skill files directly via `Read` tool
+- ❌ Searching for patterns manually via `Grep`/`Glob`
+- ✅ `Skill("skillmaker:skill-design")` - Correct
+
+**Example Dynamic Call:**
+```
+User: "Create a new skill for API validation"
+Agent: Skill("skillmaker:skill-design")  ← Load skill expertise first
+Agent: [Apply skill-design guidance to create the skill]
+```
 
 ---
 
@@ -143,4 +171,5 @@ claude-mem: store observation
 - Include Task + Skill tools
 - Configure Serena Gateway for exploration
 - Set claude-mem project name
-- "Explore codebase before selecting skills"
+- **MUST use `Skill()` tool for dynamic skill loading**
+- Add explicit instruction: "When relevant topic detected, call `Skill('plugin:skill-name')` before proceeding. Do NOT read skill files directly."

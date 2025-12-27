@@ -14,6 +14,36 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/skill-access-guard.py\"",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Grep",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/skill-access-guard.py\"",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/skill-access-guard.py\"",
+            "timeout": 3
+          }
+        ]
+      },
+      {
         "matcher": "Write",
         "hooks": [
           {
