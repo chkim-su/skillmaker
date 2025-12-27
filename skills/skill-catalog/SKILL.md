@@ -1,16 +1,34 @@
 ---
 name: skill-catalog
 description: Categorize and display available skills. Use when listing or selecting skills.
-allowed-tools: ["Read", "Glob", "Grep"]
+allowed-tools: ["Read"]
 ---
 
-# Discovery
+# Claude Code Global Skill System
 
-```bash
-Glob: .claude/skills/*/SKILL.md
+Claude Code maintains a **global skill registry**. All installed skills are automatically available.
+
+```
+System Prompt (자동 포함):
+<available_skills>
+  <skill><name>skill-name</name><description>...</description></skill>
+  ...
+</available_skills>
 ```
 
-Read each SKILL.md, extract name and description.
+**No discovery needed** - Claude already knows all skills.
+
+---
+
+# Skill Sources
+
+| Source | Location | Registration |
+|--------|----------|--------------|
+| Plugin Skills | `~/.claude/plugins/*/skills/` | marketplace.json `skills` array |
+| User Skills | `~/.claude/skills/` | Automatic |
+| Project Skills | `.claude/skills/` | Automatic |
+
+All sources merge into a single global registry accessible via `Skill` tool.
 
 ---
 
@@ -23,46 +41,44 @@ Read each SKILL.md, extract name and description.
 | 📝 | Documentation | doc, writing, content |
 | 🔧 | Development Tools | build, deploy, test, ci |
 | 🔒 | Security | security, auth, validation |
-| 🤖 | AI & Automation | ai, workflow, orchestration |
+| 🤖 | AI & Orchestration | ai, workflow, orchestration, agent |
 | 📦 | Code Generation | generate, scaffold, template |
 | 🔍 | Code Analysis | analyze, review, refactor |
 
 ---
 
-# Categorization
+# Usage
 
-Match description keywords to categories:
+## Listing Skills
+Claude can reference `<available_skills>` from system prompt directly.
 
+## Calling Skills
 ```
-for skill in skills:
-  for category, keywords in categories:
-    if any(keyword in description):
-      assign category
+Skill("skill-name")           # Load skill into context
+Skill("plugin:skill-name")    # Fully qualified name
+```
+
+## In Agent YAML
+```yaml
+skills: skill1, skill2        # Auto-loaded at agent start
 ```
 
 ---
 
-# Display Format
+# Skill Selection Guide
+
+For orchestrator agents, help users select skills:
 
 ```markdown
-## Available Skills
+## Available Skills by Category
 
-### 📊 Data & Analysis
-- **sql-helper**: Write and optimize SQL queries
+### 🔍 Code Analysis
+- **serena-refactor:analyze** - SOLID violation detection
+- **pr-review-toolkit:code-reviewer** - PR code review
 
-### 🎨 Design & Frontend
-- **frontend-design**: Create polished UI components
-```
+### 🤖 AI & Orchestration
+- **skillmaker:orchestration-patterns** - Agent architecture
+- **skillmaker:mcp-gateway-patterns** - MCP isolation
 
----
-
-# Selection (for orchestrators)
-
-```
-Which skills to use?
-
-📊 Data: 1. sql-helper
-🎨 Design: 2. frontend-design
-
-Enter numbers or names:
+Which skills does your agent need?
 ```

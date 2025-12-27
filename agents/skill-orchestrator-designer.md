@@ -25,13 +25,18 @@ color: green
 2. Single-domain or multi-domain?
 3. Need codebase exploration + session memory? (→ Enhanced Agent)
 
-## Phase 2: Discover Skills
+## Phase 2: Select Skills
 
-```bash
-Glob: .claude/skills/*/SKILL.md
-```
+Skills are **globally available** from Claude Code's `<available_skills>` registry.
 
-Show categorized list to user.
+Show categorized list from skill-catalog:
+- 📊 Data & Analysis
+- 🎨 Design & Frontend
+- 🔧 Development Tools
+- 🤖 AI & Orchestration
+- 🔍 Code Analysis
+
+User selects relevant skills for the agent.
 
 ## Phase 3: Determine Architecture
 
@@ -183,7 +188,7 @@ Main Context ← clean
 # Success Criteria
 
 - Clear purpose
-- Correct architecture (single vs multi)
-- Skills in YAML frontmatter
+- Correct architecture (single vs multi vs enhanced)
+- Skills in YAML frontmatter (from global registry)
 - Appropriate tool selection
 - Demonstrates context isolation

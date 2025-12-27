@@ -4,7 +4,23 @@ description: Single-skill vs multi-skill subagent architectures. Use when design
 allowed-tools: ["Read", "Write"]
 ---
 
-# Two Patterns
+# Subagent Architecture Patterns
+
+Subagents provide **context isolation** - intermediate work stays in subagent's context, keeping main conversation clean.
+
+---
+
+# Skill Loading
+
+Skills declared in YAML frontmatter load **automatically** from Claude Code's global registry:
+
+```yaml
+skills: skill1, skill2    # Auto-loaded at subagent start
+```
+
+Skills can come from any source (plugins, user, project) - all are globally available.
+
+---
 
 ## Pattern 1: Single-Skill Consumer
 
@@ -15,6 +31,7 @@ allowed-tools: ["Read", "Write"]
 name: sql-agent
 skills: sql-helper
 tools: [Read, Grep, Glob]
+model: sonnet
 ---
 ```
 
@@ -36,6 +53,7 @@ User → Subagent [isolated] → skill-x → Focused result
 name: fullstack-orchestrator
 skills: frontend-design, api-generator, migration-patterns
 tools: [Read, Write, Bash, Task]
+model: sonnet
 ---
 ```
 
@@ -49,26 +67,6 @@ User → Orchestrator [isolated]
 
 ✅ Handles complex workflows
 ❌ More decision-making overhead
-
----
-
-# Decision Matrix
-
-| Question | Single-Skill | Multi-Skill |
-|----------|--------------|-------------|
-| Scope? | Narrow | Broad |
-| Skills needed? | 1 | 2+ |
-| Coordination? | No | Yes |
-
----
-
-# Auto-Loading
-
-```yaml
-skills: skill1, skill2
-```
-
-Skills load automatically when subagent starts. No explicit activation needed.
 
 ---
 
@@ -96,7 +94,7 @@ Serena Gateway: explore codebase (QUERY)
     ↓
 Match findings → skill-rules.json
     ↓
-Auto-call relevant skills
+Auto-call relevant skills (via Skill tool)
     ↓
 Execute task
     ↓
@@ -109,9 +107,9 @@ claude-mem: store observation
 ❌ Requires Serena + claude-mem setup
 
 **Key Components:**
-1. **Serena Gateway** - Codebase exploration bridge (see `mcp-gateway-patterns`)
-2. **skill-rules.json** - Trigger patterns (see `skill-activation-patterns`)
-3. **claude-mem** - Context persistence (see `references/enhanced-agent.md`)
+1. **Serena Gateway** - Codebase exploration with MCP isolation (see `mcp-gateway-patterns`)
+2. **skill-rules.json** - Trigger patterns for auto-activation (see `skill-activation-patterns`)
+3. **claude-mem** - Context persistence across sessions (see `references/enhanced-agent.md`)
 
 ---
 
@@ -131,18 +129,18 @@ claude-mem: store observation
 
 **Single-Skill:**
 - Name: `{domain}-agent`
-- Minimal tools
+- Minimal tools (Read, Grep, Glob)
 - "Use {skill} for all operations"
 
 **Multi-Skill:**
 - Name: `{domain}-orchestrator`
-- Include Task tool
+- Include Task tool for sub-delegation
 - Document when to use each skill
 - "Don't activate all skills for simple requests"
 
 **Enhanced:**
 - Name: `{domain}-smart-agent`
 - Include Task + Skill tools
-- Add Serena Gateway for exploration
-- Document claude-mem project name
+- Configure Serena Gateway for exploration
+- Set claude-mem project name
 - "Explore codebase before selecting skills"
