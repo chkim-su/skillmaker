@@ -82,3 +82,15 @@ For orchestrator agents, help users select skills:
 
 Which skills does your agent need?
 ```
+
+---
+
+## Best Practices
+
+1. **Use global registry** - Don't manually glob for skills
+2. **Categorize by domain** - Help users find relevant skills
+3. **Prefer plugin:skill format** - Avoid naming conflicts
+
+## References
+
+- [Skill Categories](references/skill-categories.md) - Detailed category definitions

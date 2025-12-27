@@ -14,176 +14,62 @@ This is **design pattern documentation**, not an implementation.
 |--------------|------------------|
 | Reference patterns | Exclusive functionality |
 | Implementation guide | The only way to do it |
-| Best practices | Mandatory approach |
 
-**Implementation options:**
-- **Plugin-level**: Each plugin implements its own activation for its skills
-- **Project-level**: Central config at `.claude/skills/skill-rules.json`
-- **Hybrid**: Both approaches combined
+**Any plugin or project can implement skill-activation independently.**
 
-Any plugin or project can implement skill-activation independently.
+## Quick Start
 
----
+1. Create `.claude/skills/skill-rules.json`
+2. Add UserPromptSubmit hook to settings.json
+3. Hook reads rules, matches triggers, suggests skills
 
-## Problem
-
-Claude Code skills don't activate automatically by default. Users must explicitly invoke skills, which means:
-- Relevant skills are forgotten during work
-- Best practices aren't enforced
-- Domain expertise isn't applied when needed
-
-## Solution: Hook + skill-rules.json
+## Core Concept
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                 AUTO-ACTIVATION SYSTEM                   │
-├─────────────────────────────────────────────────────────┤
-│                                                          │
-│  User Prompt → [UserPromptSubmit Hook]                  │
-│                      ↓                                   │
-│              Read skill-rules.json                       │
-│                      ↓                                   │
-│              Match triggers:                             │
-│              • Keywords (case-insensitive)               │
-│              • Intent patterns (regex)                   │
-│              • File paths (glob)                         │
-│              • Content patterns (code detection)         │
-│                      ↓                                   │
-│              Output skill suggestions                    │
-│                      ↓                                   │
-│              Claude uses Skill tool                      │
-│                                                          │
-└─────────────────────────────────────────────────────────┘
+User Prompt → [Hook] → skill-rules.json → Match triggers → Suggest skills
 ```
 
----
-
-## skill-rules.json Schema
+## skill-rules.json (Minimal)
 
 ```json
 {
   "version": "1.0",
   "skills": {
-    "skill-name": {
-      "type": "domain|guardrail",
-      "enforcement": "suggest|warn|block",
-      "priority": "critical|high|medium|low",
+    "backend-patterns": {
+      "type": "domain",
+      "enforcement": "suggest",
       "promptTriggers": {
-        "keywords": ["keyword1", "keyword2"],
-        "intentPatterns": ["regex pattern"]
-      },
-      "fileTriggers": {
-        "pathPatterns": ["src/**/*.ts"],
-        "pathExclusions": ["**/*.test.ts"],
-        "contentPatterns": ["import.*Pattern"]
-      },
-      "blockMessage": "Custom message when blocked",
-      "skipConditions": {
-        "sessionSkillUsed": true,
-        "fileMarkers": ["@skip-validation"]
+        "keywords": ["backend", "API"]
       }
     }
   }
 }
 ```
 
----
-
 ## Skill Types
 
-| Type | Purpose | When to Use |
-|------|---------|-------------|
-| **domain** | Expertise/knowledge | Backend patterns, API design, testing |
-| **guardrail** | Enforce standards | Breaking changes, security, compatibility |
-
----
+| Type | Purpose |
+|------|---------|
+| **domain** | Expertise/knowledge |
+| **guardrail** | Enforce standards |
 
 ## Enforcement Levels
 
-| Level | Behavior | Use Case |
-|-------|----------|----------|
-| **suggest** | Show recommendation | General best practices |
-| **warn** | Show warning, allow proceed | Important but not critical |
-| **block** | Must use skill first | Breaking changes, security |
-
----
-
-## Trigger Types
-
-### 1. Keyword Triggers
-Simple case-insensitive matching:
-```json
-"keywords": ["backend", "API", "controller", "service"]
-```
-
-### 2. Intent Pattern Triggers
-Regex for user intent:
-```json
-"intentPatterns": [
-  "(create|add|implement).*?(route|endpoint|API)",
-  "(how to|best practice).*?(backend|service)"
-]
-```
-
-### 3. File Path Triggers
-Glob patterns for file context:
-```json
-"pathPatterns": ["src/backend/**/*.ts", "api/**/*.ts"],
-"pathExclusions": ["**/*.test.ts", "**/*.spec.ts"]
-```
-
-### 4. Content Pattern Triggers
-Code content detection:
-```json
-"contentPatterns": ["import.*Prisma", "router\\.get"]
-```
-
----
-
-## Priority Levels
-
-| Priority | When Triggered | Display |
-|----------|----------------|---------|
-| **critical** | Always | ⚠️ CRITICAL SKILLS (REQUIRED) |
-| **high** | Most matches | 📚 RECOMMENDED SKILLS |
-| **medium** | Clear matches | 💡 SUGGESTED SKILLS |
-| **low** | Explicit only | 📌 OPTIONAL SKILLS |
-
----
-
-## Implementation
-
-See `references/` for detailed implementation:
-- `hook-implementation.md` - TypeScript/Bash hook code
-- `skill-rules-examples.md` - Real-world configuration examples
-- `integration-guide.md` - Step-by-step setup
-
----
-
-## Quick Start
-
-1. Create `.claude/skills/skill-rules.json`
-2. Add hook to `.claude/settings.json`:
-```json
-{
-  "hooks": {
-    "UserPromptSubmit": [{
-      "hooks": [{
-        "type": "command",
-        "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/skill-activation.sh"
-      }]
-    }]
-  }
-}
-```
-3. Test: Edit a file matching pathPatterns → skill should activate
-
----
+| Level | Behavior |
+|-------|----------|
+| **suggest** | Recommend |
+| **warn** | Allow + warning |
+| **block** | Must use skill |
 
 ## Best Practices
 
-1. **Start with suggest** - Don't block until pattern is proven
-2. **Specific keywords** - Avoid generic words that over-trigger
-3. **Test regex** - Verify intentPatterns don't have false positives
-4. **Document blockMessage** - Clear guidance for blocked actions
-5. **Use skipConditions** - Allow escape hatch for edge cases
+1. **Start with suggest** - Don't block until proven
+2. **Specific keywords** - Avoid generic over-triggering
+3. **Test regex** - Verify no false positives
+4. **Use skipConditions** - Allow escape hatch
+
+## References
+
+- [Full Schema](references/full-schema.md) - Complete skill-rules.json spec
+- [Hook Implementation](references/hook-implementation.md) - TypeScript/Bash code
+- [Real Examples](references/skill-rules-examples.md) - Production configs
