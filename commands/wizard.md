@@ -414,6 +414,7 @@ The validation script performs **comprehensive multi-layer checking**:
 | **Remote Mismatch** | **E018** | **Git remote ≠ marketplace.json source repo** |
 | **Remote Access** | **E019** | **External GitHub repo not accessible** |
 | **Remote Files** | **E020** | **External repo missing required files** |
+| **Hookify** | **W028** | **Enforcement keywords (MUST/REQUIRED/CRITICAL) without hooks** |
 | Edge Case | Null/empty source | Catches `source: null`, `source: ""`, `source: {}` |
 | Edge Case | Wrong key names | Detects `"type"` instead of `"source"` |
 | Pattern | Official patterns | Validates against official Claude plugin structure |
@@ -504,6 +505,28 @@ marketplace.json에 선언: ./commands/analyze.md
 1. 외부 리포지토리에 누락된 파일 푸시
 2. 또는 marketplace.json에서 해당 경로 제거
 3. Multi Repo 대신 Single Repo 모델 사용 고려
+
+### W028: Hookify Required (Warning)
+
+**증상**: 스킬/에이전트 파일에 강제 키워드(MUST, REQUIRED, CRITICAL)가 있지만 hooks.json이 없음
+
+**원인**:
+```
+skills/my-skill/SKILL.md: "MUST use Skill() tool"
+agents/my-agent.md: "CRITICAL: Never read files directly"
+→ hooks/hooks.json 없음
+```
+
+**문제**: 문서 기반 강제는 **무의미**합니다. 에이전트는 이를 무시합니다.
+
+**해결 방법**:
+1. `hooks/hooks.json` 생성
+2. PreToolUse/PostToolUse 훅으로 행동 강제
+3. 또는 강제 키워드를 "should", "recommend"로 변경
+
+**예시**:
+- ❌ SKILL.md: "MUST use Skill() tool" → 에이전트가 무시함
+- ✅ PreToolUse hook: Read/Grep/Glob 시 skill 파일 접근 경고
 
 ## Execution Steps
 

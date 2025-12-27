@@ -36,6 +36,40 @@ skill-name/
 
 ---
 
+# When to Hook (Enforcement Logic)
+
+**Rule**: If behavior MUST happen, use hooks. Documentation cannot enforce.
+
+| Requirement Type | Example | Solution |
+|------------------|---------|----------|
+| **MUST/REQUIRED** | "MUST use Skill tool" | PreToolUse hook to warn/block |
+| **Validation** | "Schema must be valid" | PostToolUse hook to validate |
+| **Prevention** | "Never commit secrets" | PreToolUse hook to block |
+| **Guidance** | "Consider using X" | Documentation only (OK) |
+
+## Hook vs Documentation Decision
+
+```
+If keyword in ["MUST", "REQUIRED", "CRITICAL", "강제", "반드시"]:
+    → Implement as Hook (documentation alone WILL be ignored)
+
+If keyword in ["should", "consider", "recommend"]:
+    → Documentation is sufficient
+```
+
+## Hookify Checklist
+
+Before finalizing skill:
+1. Search for enforcement keywords (MUST, REQUIRED, CRITICAL)
+2. Each enforcement requirement → corresponding hook exists?
+3. If no hook → either create hook OR downgrade to "should"
+
+**Example**:
+- ❌ "MUST use Skill() tool" in SKILL.md → Agents ignore this
+- ✅ PreToolUse hook on Read/Grep/Glob warns when skill files accessed directly
+
+---
+
 # SKILL.md Structure
 
 ```yaml
@@ -93,3 +127,4 @@ allowed-tools: ["Read", "Write", "Bash"]
 - Scripts tested
 - References linked
 - allowed-tools matches purpose
+- **Hookify check**: Enforcement keywords (MUST/REQUIRED/CRITICAL) → hooks exist

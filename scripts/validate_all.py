@@ -2669,6 +2669,105 @@ def validate_against_official_patterns(plugin_root: Path) -> ValidationResult:
                     f'Agents must be .md files.'
                 )
 
+    # Pattern 4: Hookify check - enforcement keywords should have corresponding hooks
+    hookify_result = check_hookify_requirements(plugin_root)
+    result.warnings.extend(hookify_result.warnings)
+    result.passed.extend(hookify_result.passed)
+
+    return result
+
+
+def check_hookify_requirements(plugin_root: Path) -> ValidationResult:
+    """
+    W028: Check if enforcement keywords (MUST, REQUIRED, CRITICAL) in skills/agents
+    have corresponding hooks. Documentation-only enforcement is meaningless.
+    """
+    result = ValidationResult()
+
+    # Enforcement keywords that should be hookified
+    enforcement_patterns = [
+        (re.compile(r'\bMUST\b', re.IGNORECASE), "MUST"),
+        (re.compile(r'\bREQUIRED\b', re.IGNORECASE), "REQUIRED"),
+        (re.compile(r'\bCRITICAL\b', re.IGNORECASE), "CRITICAL"),
+        (re.compile(r'\b강제\b'), "강제"),
+        (re.compile(r'\b반드시\b'), "반드시"),
+    ]
+
+    # Skip patterns - these are meta-discussions about hookify, not actual enforcement
+    skip_patterns = [
+        re.compile(r'When to Hook', re.IGNORECASE),
+        re.compile(r'Hookify check', re.IGNORECASE),
+        re.compile(r'Hook vs Documentation', re.IGNORECASE),
+        re.compile(r'documentation.*enforce', re.IGNORECASE),
+        re.compile(r'hookify.*requirement', re.IGNORECASE),
+    ]
+
+    # Check if hooks exist
+    hooks_json = None
+    for loc in [
+        plugin_root / "hooks" / "hooks.json",
+        plugin_root / ".claude-plugin" / "hooks.json",
+        plugin_root / ".claude" / "hooks.json",
+    ]:
+        if loc.exists():
+            hooks_json = loc
+            break
+
+    has_hooks = hooks_json is not None
+
+    # Scan skills for enforcement keywords
+    skills_dir = plugin_root / "skills"
+    agents_dir = plugin_root / "agents"
+
+    enforcement_found = []
+
+    for scan_dir, file_type in [(skills_dir, "skill"), (agents_dir, "agent")]:
+        if not scan_dir.exists():
+            continue
+
+        for md_file in scan_dir.rglob("*.md"):
+            try:
+                content = md_file.read_text(encoding='utf-8')
+
+                # Skip if this is a meta-discussion about hookify
+                is_meta = any(p.search(content) for p in skip_patterns)
+
+                for pattern, keyword in enforcement_patterns:
+                    matches = pattern.findall(content)
+                    if matches and not is_meta:
+                        # Get surrounding context for the match
+                        lines = content.split('\n')
+                        for i, line in enumerate(lines):
+                            if pattern.search(line):
+                                # Skip if line is in a code block or header about hooks
+                                if 'hook' in line.lower() or line.strip().startswith('#'):
+                                    continue
+                                enforcement_found.append({
+                                    'file': str(md_file.relative_to(plugin_root)),
+                                    'keyword': keyword,
+                                    'line': i + 1,
+                                    'context': line.strip()[:80]
+                                })
+            except Exception:
+                pass
+
+    if enforcement_found and not has_hooks:
+        # Group by file
+        files_with_enforcement = set(e['file'] for e in enforcement_found)
+        result.add_warning(
+            f'[W028] Hookify required: Found {len(enforcement_found)} enforcement keyword(s) '
+            f'in {len(files_with_enforcement)} file(s) but no hooks.json exists.\n'
+            f'       Documentation-only enforcement is meaningless - agents will ignore it.\n'
+            f'       Files: {", ".join(sorted(files_with_enforcement)[:3])}'
+            f'{" ..." if len(files_with_enforcement) > 3 else ""}\n'
+            f'       Action: Create hooks/hooks.json with PreToolUse/PostToolUse hooks to enforce.'
+        )
+    elif enforcement_found and has_hooks:
+        # Has both enforcement keywords and hooks - good
+        result.add_pass(f"Hookify check: {len(enforcement_found)} enforcement keywords found, hooks.json exists")
+    elif not enforcement_found:
+        result.add_pass("Hookify check: No enforcement keywords requiring hooks")
+
     return result
 
 
