@@ -15,7 +15,7 @@ Enhanced agents combine:
 ---
 name: {domain}-smart-agent
 description: Enhanced agent with codebase exploration and memory persistence
-tools: [Read, Write, Bash, Task, Skill, Grep, Glob]
+tools: ["Read", "Write", "Bash", "Task", "Skill", "Grep", "Glob"]
 skills: {base-skills}
 model: sonnet
 color: purple
@@ -206,7 +206,7 @@ User: "Add authentication to the API"
 ---
 name: fullstack-smart-agent
 description: Enhanced fullstack development with codebase awareness
-tools: [Read, Write, Bash, Task, Skill, Grep, Glob]
+tools: ["Read", "Write", "Bash", "Task", "Skill", "Grep", "Glob"]
 skills: skill-catalog
 model: sonnet
 color: purple

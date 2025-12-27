@@ -116,9 +116,9 @@ AskUserQuestion:
     "description": "...",
     "source": {"source": "github", "repo": "{owner/repo}"},
     "version": "1.0.0",
-    "skills": [],
-    "commands": [],
-    "agents": []
+    "skills": ["./skills/{skill-name}"],
+    "commands": ["./commands/{command-name}.md"],
+    "agents": ["./agents/{agent-name}.md"]
   }]
 }
 ```
@@ -132,7 +132,9 @@ AskUserQuestion:
   "owner": {"name": "{user}"},
   "plugins": [{
     "name": "{plugin-name}",
-    "source": "./"
+    "source": "./",
+    "skills": ["./skills/{skill-name}"],
+    "agents": ["./agents/{agent-name}.md"]
   }]
 }
 ```

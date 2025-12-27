@@ -30,7 +30,7 @@ Skills can come from any source (plugins, user, project) - all are globally avai
 ---
 name: sql-agent
 skills: sql-helper
-tools: [Read, Grep, Glob]
+tools: ["Read", "Grep", "Glob"]
 model: sonnet
 ---
 ```
@@ -52,7 +52,7 @@ User → Subagent [isolated] → skill-x → Focused result
 ---
 name: fullstack-orchestrator
 skills: frontend-design, api-generator, migration-patterns
-tools: [Read, Write, Bash, Task]
+tools: ["Read", "Write", "Bash", "Task"]
 model: sonnet
 ---
 ```
@@ -78,7 +78,7 @@ User → Orchestrator [isolated]
 ---
 name: smart-orchestrator
 skills: domain-skill-1, domain-skill-2
-tools: [Read, Write, Bash, Task, Skill]
+tools: ["Read", "Write", "Bash", "Task", "Skill"]
 model: sonnet
 ---
 ```
