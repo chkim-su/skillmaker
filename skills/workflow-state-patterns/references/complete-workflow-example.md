@@ -40,77 +40,116 @@ This example shows a complete 4-phase refactoring workflow with:
 
 ## Hooks Configuration
 
-`hooks/hooks.json`:
+`hooks/hooks.json` (Claude Code 1.0.40+ Schema):
 
 ```json
 {
-  "hooks": [
-    {
-      "type": "preToolUse",
-      "matcher": "Task",
-      "pattern": "refactor-executor",
-      "command": "test -f .refactor-analysis-done && test -f .refactor-plan-approved",
-      "behavior": "block",
-      "message": "❌ Workflow violation: Cannot execute without completed analysis and approved plan.\n\nRequired files:\n  - .refactor-analysis-done (run analyzer first)\n  - .refactor-plan-approved (run planner and approve)",
-      "timeout": 5000
-    },
-    {
-      "type": "preToolUse",
-      "matcher": "Task",
-      "pattern": "refactor-planner",
-      "command": "test -f .refactor-analysis-done || echo '⚠️ Warning: Planning without analysis may miss issues'",
-      "behavior": "notify",
-      "timeout": 3000
-    },
-    {
-      "type": "postToolUse",
-      "matcher": "Task",
-      "pattern": "solid-analyzer",
-      "command": "touch .refactor-analysis-done && echo '✓ Analysis complete. State: .refactor-analysis-done created'",
-      "behavior": "notify",
-      "timeout": 3000
-    },
-    {
-      "type": "postToolUse",
-      "matcher": "Task",
-      "pattern": "refactor-planner",
-      "command": "touch .refactor-plan-approved && echo '✓ Plan created. State: .refactor-plan-approved created'",
-      "behavior": "notify",
-      "timeout": 3000
-    },
-    {
-      "type": "postToolUse",
-      "matcher": "Task",
-      "pattern": "refactor-executor",
-      "command": "touch .refactor-execution-done && echo '✓ Execution complete. State: .refactor-execution-done created'",
-      "behavior": "notify",
-      "timeout": 3000
-    },
-    {
-      "type": "postToolUse",
-      "matcher": "Task",
-      "pattern": "refactor-auditor.*PASS",
-      "command": "touch .refactor-audit-passed && rm -f .refactor-analysis-done .refactor-plan-approved .refactor-execution-done && echo '✓ Audit passed. Workflow complete. All state files cleaned.'",
-      "behavior": "notify",
-      "timeout": 5000
-    },
-    {
-      "type": "postToolUse",
-      "matcher": "Task",
-      "pattern": "refactor-auditor.*FAIL",
-      "command": "echo '⚠️ Audit failed. Fix issues and re-run executor. State preserved for retry.'",
-      "behavior": "notify",
-      "timeout": 3000
-    },
-    {
-      "type": "stop",
-      "command": "if [ -f .refactor-execution-done ] && [ ! -f .refactor-audit-passed ]; then echo '\\n📋 Workflow Status: Execution done, audit pending.\\nNext session: Run auditor to verify changes.'; fi",
-      "behavior": "notify",
-      "timeout": 5000
-    }
-  ]
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/refactor-gate.py pre",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/refactor-gate.py post",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/refactor-gate.py stop",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
+
+**Gate Script** (`scripts/refactor-gate.py`):
+
+```python
+#!/usr/bin/env python3
+"""Workflow gate script for refactoring pipeline."""
+import sys, json, os
+
+def pre_hook(data):
+    """PreToolUse: Check gates before execution."""
+    subagent = data.get('tool_input', {}).get('subagent_type', '')
+
+    if 'refactor-executor' in subagent:
+        if not (os.path.exists('.refactor-analysis-done') and
+                os.path.exists('.refactor-plan-approved')):
+            print("❌ Workflow violation: Cannot execute without completed analysis and approved plan.")
+            print("Required: .refactor-analysis-done, .refactor-plan-approved")
+            sys.exit(1)  # Block
+
+    elif 'refactor-planner' in subagent:
+        if not os.path.exists('.refactor-analysis-done'):
+            print("⚠️ Warning: Planning without analysis may miss issues")
+
+    sys.exit(0)
+
+def post_hook(data):
+    """PostToolUse: Update state files after execution."""
+    subagent = data.get('tool_input', {}).get('subagent_type', '')
+    response = str(data.get('tool_response', ''))
+
+    if 'solid-analyzer' in subagent:
+        open('.refactor-analysis-done', 'w').close()
+        print("✓ Analysis complete. State: .refactor-analysis-done created")
+
+    elif 'refactor-planner' in subagent:
+        open('.refactor-plan-approved', 'w').close()
+        print("✓ Plan created. State: .refactor-plan-approved created")
+
+    elif 'refactor-executor' in subagent:
+        open('.refactor-execution-done', 'w').close()
+        print("✓ Execution complete. State: .refactor-execution-done created")
+
+    elif 'refactor-auditor' in subagent:
+        if 'PASS' in response:
+            open('.refactor-audit-passed', 'w').close()
+            for f in ['.refactor-analysis-done', '.refactor-plan-approved', '.refactor-execution-done']:
+                if os.path.exists(f): os.remove(f)
+            print("✓ Audit passed. Workflow complete. All state files cleaned.")
+        elif 'FAIL' in response:
+            print("⚠️ Audit failed. Fix issues and re-run executor. State preserved for retry.")
+
+def stop_hook():
+    """Stop: Report workflow status."""
+    if os.path.exists('.refactor-execution-done') and not os.path.exists('.refactor-audit-passed'):
+        print("\\n📋 Workflow Status: Execution done, audit pending.")
+        print("Next session: Run auditor to verify changes.")
+
+if __name__ == '__main__':
+    mode = sys.argv[1] if len(sys.argv) > 1 else 'pre'
+    data = json.load(sys.stdin) if mode != 'stop' else {}
+
+    if mode == 'pre': pre_hook(data)
+    elif mode == 'post': post_hook(data)
+    elif mode == 'stop': stop_hook()
+```
+
+**Note:** Subagent-specific logic is handled in the script by parsing `tool_input.subagent_type`.
 
 ---
 

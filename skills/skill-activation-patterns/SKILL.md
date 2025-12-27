@@ -1,10 +1,29 @@
 ---
 name: skill-activation-patterns
-description: Skill auto-activation system using hooks and trigger configuration. Use when designing skills that should activate automatically.
+description: Design patterns for automatic skill activation. Reference documentation for implementing your own activation system.
 allowed-tools: ["Read", "Write", "Grep", "Glob"]
 ---
 
 # Skill Activation Patterns
+
+## Scope
+
+This is **design pattern documentation**, not an implementation.
+
+| What this is | What this is NOT |
+|--------------|------------------|
+| Reference patterns | Exclusive functionality |
+| Implementation guide | The only way to do it |
+| Best practices | Mandatory approach |
+
+**Implementation options:**
+- **Plugin-level**: Each plugin implements its own activation for its skills
+- **Project-level**: Central config at `.claude/skills/skill-rules.json`
+- **Hybrid**: Both approaches combined
+
+Any plugin or project can implement skill-activation independently.
+
+---
 
 ## Problem
 

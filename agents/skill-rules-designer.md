@@ -17,15 +17,21 @@ Design and generate skill-rules.json configurations for automatic skill activati
 
 ### Phase 1: Discover Skills
 
-```bash
-# Find all skills in project
-Glob: .claude/skills/*/SKILL.md
-```
+**Use Claude Code's Global Skill Registry:**
 
-For each skill found:
-1. Read SKILL.md frontmatter (name, description)
-2. Extract key concepts and domains
-3. Identify candidate keywords
+Claude Code maintains a global `<available_skills>` list in the system prompt, containing all skills from:
+- Plugin skills (`~/.claude/plugins/*/skills/`)
+- User skills (`~/.claude/skills/`)
+- Project skills (`.claude/skills/`)
+
+**Discovery approach:**
+1. Reference the `<available_skills>` section in the current context
+2. For project-specific skills, optionally use: `Glob: .claude/skills/*/SKILL.md`
+3. Read SKILL.md frontmatter (name, description)
+4. Extract key concepts and domains
+5. Identify candidate keywords
+
+**Note:** skill-rules.json can configure activation for ANY skill visible in the global registry, not just project-local skills.
 
 ### Phase 2: Analyze Project Structure
 

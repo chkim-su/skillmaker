@@ -112,20 +112,45 @@ model: sonnet
 
 ### Hook Template (for multi-phase workflows)
 
+**Claude Code 1.0.40+ Schema:**
+
 ```json
 {
-  "hooks": [
-    {
-      "type": "preToolUse",
-      "matcher": "Task",
-      "pattern": "{mcp}.*executor",
-      "command": "{gate_check}",
-      "behavior": "block",
-      "message": "{violation_message}"
-    }
-  ]
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow-gate.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
+
+**Gate Script Example** (`scripts/workflow-gate.py`):
+```python
+#!/usr/bin/env python3
+import sys, json, os, re
+
+data = json.load(sys.stdin)
+subagent = data.get('tool_input', {}).get('subagent_type', '')
+
+# Pattern matching for executor agents
+if re.search(r'executor', subagent):
+    if not os.path.exists('.workflow-plan-approved'):
+        print("❌ Gate violation: Plan approval required before execution")
+        sys.exit(1)  # Block
+
+sys.exit(0)  # Allow
+```
+
+**Note:** Subagent filtering requires script-based logic since `matcher` only matches tool names.
 
 ---
 
