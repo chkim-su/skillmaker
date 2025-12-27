@@ -176,21 +176,22 @@ fi
 }
 ```
 
-**Matcher Formats (BOTH valid):**
+**Matcher Format (String ONLY):**
 
-1. **String matcher** - Simple tool name matching:
 ```json
 "matcher": "Task"
 "matcher": "Edit|Write|MultiEdit"
 ```
 
-2. **Object matcher** - Advanced conditional matching:
-```json
-"matcher": {
-  "tool_name": "Task",
-  "input_contains": ["serena-refactor-executor"],
-  "output_contains": ["VERDICT: PASS"]
-}
+**For conditional filtering**: Parse `tool_input` in your hook script:
+```bash
+#!/bin/bash
+INPUT=$(cat)
+SUBAGENT=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // ""')
+
+if [[ "$SUBAGENT" == *"serena-refactor-executor"* ]]; then
+    # Handle this specific subagent
+fi
 ```
 
 **Common Mistakes to Avoid:**
@@ -198,3 +199,4 @@ fi
 - Missing `"type": "command"` - type field is required
 - `"pattern": "..."` - pattern field doesn't exist, use matcher
 - `"behavior": "block"` - behavior field doesn't exist
+- **Object matcher** - `{"tool_name": "...", "input_contains": [...]}` is NOT supported

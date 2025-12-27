@@ -1602,22 +1602,25 @@ def validate_hooks_json(plugin_root: Path) -> ValidationResult:
                 result.add_error(f'[E027] hooks.json: {prefix} must be object')
                 continue
 
-            # Check matcher is string OR object (both valid)
-            # String: "Edit|Write" - simple tool name matching
-            # Object: {"tool_name": "Task", "input_contains": [...]} - advanced matching
+            # Check matcher is STRING ONLY (Claude Code 1.0.40+)
+            # String: "Edit|Write|MultiEdit" - tool name matching with pipe for alternatives
+            # Object matchers are NOT supported by Claude Code - filter in script instead
             if "matcher" in hook_group:
                 matcher = hook_group["matcher"]
                 if isinstance(matcher, str):
                     pass  # Valid: string matcher
                 elif isinstance(matcher, dict):
-                    # Valid: object matcher with tool_name and optional filters
-                    if "tool_name" not in matcher:
-                        result.add_warning(
-                            f'[E027] hooks.json: {prefix}.matcher object should have "tool_name" field'
-                        )
+                    # ERROR: Object matchers are NOT supported by Claude Code
+                    # The original intent (input_contains, subagent filtering) must be done in script
+                    result.add_error(
+                        f'[E027] hooks.json: {prefix}.matcher must be string, not object. '
+                        f'Object matchers are NOT supported by Claude Code. '
+                        f'Use string matcher (e.g., "Task") and filter by parsing tool_input in your hook script. '
+                        f'See hook-templates skill for examples.'
+                    )
                 else:
                     result.add_error(
-                        f'[E027] hooks.json: {prefix}.matcher must be string or object, got {type(matcher).__name__}'
+                        f'[E027] hooks.json: {prefix}.matcher must be string, got {type(matcher).__name__}'
                     )
 
             # Check nested hooks array exists
