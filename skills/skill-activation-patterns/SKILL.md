@@ -1,26 +1,52 @@
 ---
 name: skill-activation-patterns
-description: Design patterns for automatic skill activation. Reference documentation for implementing your own activation system.
+description: Design patterns for automatic skill activation at plugin or project level. Use when implementing keyword-based skill suggestions.
 allowed-tools: ["Read", "Write", "Grep", "Glob"]
 ---
 
 # Skill Activation Patterns
 
-## Scope
+Automatic skill suggestions based on user prompt keywords.
 
-This is **design pattern documentation**, not an implementation.
+## Two Scopes
 
-| What this is | What this is NOT |
-|--------------|------------------|
-| Reference patterns | Exclusive functionality |
-| Implementation guide | The only way to do it |
+| Scope | Location | Purpose | Who Sets It |
+|-------|----------|---------|-------------|
+| **Plugin-level** | `$CLAUDE_PLUGIN_ROOT/.claude/skills/skill-rules.json` | Plugin recommends its own skills | Plugin author |
+| **Project-level** | `$CLAUDE_PROJECT_DIR/.claude/skills/skill-rules.json` | User configures for their project | End user |
 
-**Any plugin or project can implement skill-activation independently.**
+### Plugin-level (Recommended for plugins with multiple skills)
+
+Plugins with related skills **SHOULD** include skill-activation to help users discover relevant skills:
+
+```
+my-plugin/
+├── hooks/hooks.json              ← UserPromptSubmit hook
+├── scripts/skill-activation.py   ← Hook script
+├── .claude/skills/skill-rules.json  ← Plugin's own rules
+└── skills/
+    ├── skill-a/
+    └── skill-b/
+```
+
+**Example**: skillmaker uses plugin-level activation to suggest `skill-design` when user mentions "create skill".
+
+### Project-level (User-configured)
+
+Users can add skill-activation to their own projects independently:
+
+```
+my-project/
+├── .claude/
+│   └── skills/
+│       └── skill-rules.json   ← User's rules
+└── settings.json              ← UserPromptSubmit hook
+```
 
 ## Quick Start
 
 1. Create `.claude/skills/skill-rules.json`
-2. Add UserPromptSubmit hook to settings.json
+2. Add UserPromptSubmit hook
 3. Hook reads rules, matches triggers, suggests skills
 
 ## Core Concept

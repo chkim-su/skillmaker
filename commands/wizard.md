@@ -128,11 +128,18 @@ AskUserQuestion:
 ├── .claude-plugin/
 │   ├── marketplace.json    ← Registry file
 │   └── plugin.json         ← Plugin metadata
+├── .claude/
+│   └── skills/
+│       └── skill-rules.json  ← (Optional) Plugin-level skill activation
 ├── skills/                 ← Skill directories
 ├── commands/              ← Command .md files
 ├── agents/                ← Agent .md files
-└── hooks/                 ← Hook .json files
+├── hooks/
+│   └── hooks.json         ← Hook file (including UserPromptSubmit for skill-activation)
+└── scripts/               ← Hook scripts
 ```
+
+**Note**: Plugins with 2+ related skills **SHOULD** include skill-activation to help users discover relevant skills. See `skill-activation-patterns` for details.
 
 **marketplace.json** (GitHub source):
 ```json
@@ -212,12 +219,18 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
    - `/wizard agent` - 에이전트 생성
    - `/wizard command` - 커맨드 생성
 
-2. **로컬 테스트**:
+2. **(Optional) Skill Auto-Activation 설정** (2개 이상 스킬이 있는 경우):
+   - `Skill("skillmaker:skill-activation-patterns")` 참고
+   - `.claude/skills/skill-rules.json` 생성
+   - `hooks/hooks.json`에 UserPromptSubmit hook 추가
+   - 플러그인이 자체 스킬을 키워드 기반으로 추천
+
+3. **로컬 테스트**:
    - `/wizard register` - 로컬 등록
    - Claude Code 재시작
    - 기능 테스트
 
-3. **배포** (GitHub source 사용 시):
+4. **배포** (GitHub source 사용 시):
    - `git push origin main`
    - `/wizard publish`
 ```
