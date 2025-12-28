@@ -590,6 +590,112 @@ def validate_scripts(plugin_root: Path) -> ValidationResult:
     return result
 
 
+def validate_hookify_compliance(plugin_root: Path) -> ValidationResult:
+    """
+    W028: Check if MUST/CRITICAL/REQUIRED keywords exist without corresponding hooks.
+    W035: Check for 'NOT YET HOOKIFIED' markers indicating known unhookified items.
+
+    Per skillmaker's own principle: "문서 기반 강제는 무의미합니다"
+    """
+    result = ValidationResult()
+
+    # Enforcement keywords that should be hookified
+    enforcement_keywords = [
+        r'\bMUST\b',
+        r'\bCRITICAL\b',
+        r'\bREQUIRED\b',
+        r'\bMANDATORY\b',
+        r'\b강제\b',
+        r'\b반드시\b'
+    ]
+
+    # Unhookified markers
+    unhookified_markers = [
+        'NOT YET HOOKIFIED',
+        'NOT HOOKIFIED',
+        '⚠️ **NOT YET HOOKIFIED**'
+    ]
+
+    import re
+
+    # Check if hooks.json exists
+    hooks_json = plugin_root / "hooks" / "hooks.json"
+    has_hooks = hooks_json.exists()
+
+    # Collect files to check
+    files_to_check = []
+
+    # Skills
+    skills_dir = plugin_root / "skills"
+    if skills_dir.exists():
+        for skill_dir in skills_dir.iterdir():
+            if skill_dir.is_dir():
+                skill_md = skill_dir / "SKILL.md"
+                if skill_md.exists():
+                    files_to_check.append(skill_md)
+
+    # Agents
+    agents_dir = plugin_root / "agents"
+    if agents_dir.exists():
+        for agent_file in agents_dir.glob("*.md"):
+            files_to_check.append(agent_file)
+
+    # Commands
+    commands_dir = plugin_root / "commands"
+    if commands_dir.exists():
+        for cmd_file in commands_dir.glob("*.md"):
+            files_to_check.append(cmd_file)
+
+    # Track findings
+    files_with_enforcement = []
+    unhookified_found = []
+
+    for file_path in files_to_check:
+        try:
+            content = file_path.read_text()
+        except Exception:
+            continue
+
+        rel_path = file_path.relative_to(plugin_root)
+
+        # Check for enforcement keywords
+        for pattern in enforcement_keywords:
+            if re.search(pattern, content):
+                files_with_enforcement.append(str(rel_path))
+                break
+
+        # Check for unhookified markers (W035)
+        for marker in unhookified_markers:
+            if marker in content:
+                # Count occurrences
+                count = content.count(marker)
+                unhookified_found.append((str(rel_path), count))
+                break
+
+    # W028: Enforcement keywords without hooks
+    if files_with_enforcement and not has_hooks:
+        result.add_warning(
+            f"W028: {len(files_with_enforcement)} file(s) contain enforcement keywords "
+            f"(MUST/CRITICAL/REQUIRED) but no hooks/hooks.json exists. "
+            f"Document-based enforcement is ineffective."
+        )
+    elif files_with_enforcement and has_hooks:
+        # hooks.json exists, that's good
+        result.add_pass(f"W028: Enforcement keywords found in {len(files_with_enforcement)} files, hooks.json exists")
+
+    # W035: Unhookified markers found
+    for rel_path, count in unhookified_found:
+        result.add_warning(
+            f"W035: {rel_path}: Contains {count} 'NOT YET HOOKIFIED' marker(s) - "
+            f"known limitation awaiting hookification"
+        )
+
+    if not unhookified_found and files_to_check:
+        result.add_pass("W035: No unhookified markers found")
+
+    return result
+
+
 def validate_settings_json() -> ValidationResult:
     """Check for common settings.json misconfigurations."""
     result = ValidationResult()
@@ -720,6 +826,7 @@ def main():
         total_result.merge(validate_registration(effective_root, plugin, marketplace_path))
         total_result.merge(validate_frontmatter_fields(effective_root))
         total_result.merge(validate_scripts(effective_root))
+        total_result.merge(validate_hookify_compliance(effective_root))
 
     # Output results
     if json_output:
