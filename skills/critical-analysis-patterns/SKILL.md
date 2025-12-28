@@ -47,6 +47,25 @@ allowed-tools: ["Read", "Glob", "Grep", "Task"]
 - "오버엔지니어링은 아닌가?"
 ```
 
+### 6. Fundamental Redesign 🔥
+
+> **"Idiots, this solves everything - why can't you see it?"**
+
+Beyond conservative solutions (deletion, exceptions, workarounds), ask questions that **eliminate constraints themselves**:
+
+```
+- "If this problem keeps recurring, isn't the system itself wrong?"
+- "Are we taking this constraint/limitation for granted?"
+- "Is there a completely different approach?"
+- "If there's a 10x better method, what is it?"
+- "If we rebuilt this from scratch, how would we do it?"
+```
+
+**When to apply**:
+- Same type of problem found 3+ times
+- Conservative solution feels like a "band-aid"
+- Feeling of "why is this so complicated?"
+
 ---
 
 ## Analysis Process
@@ -93,21 +112,64 @@ agents/*.md, skills/*/SKILL.md, commands/*.md, hooks/hooks.json
 
 ---
 
-## Solution Synthesis (해결책 종합)
+## Solution Synthesis
 
-> **진단 + 처방 = 컨설팅**
+> **Diagnosis + Prescription = Consulting**
 
-문제를 발견했으면, 그에 맞는 해결책을 skillmaker 스킬에서 찾아 제안합니다.
+When problems are found, provide solutions at **two levels**:
 
-| 발견 패턴 | 관련 스킬 | 해결책 참조 |
-|----------|----------|-----------|
-| MCP/Gateway 문제 | `mcp-gateway-patterns` | `references/daemon-shared-server.md` |
-| 스킬 설계 문제 | `skill-design` | `references/structure-rules.md` |
-| 에이전트 오케스트레이션 | `orchestration-patterns` | `references/context-isolation.md` |
-| Hook 관련 | `hook-templates` | `references/full-examples.md` |
-| 워크플로우 상태 | `workflow-state-patterns` | `references/complete-workflow-example.md` |
+### Level 1: Conservative Solutions
 
-**상세 프로세스**: `Read("references/solution-synthesis.md")`
+Solutions found within existing patterns/skills:
+
+| Finding Pattern | Related Skill | Solution Reference |
+|----------------|---------------|-------------------|
+| MCP/Gateway issues | `mcp-gateway-patterns` | `references/daemon-shared-server.md` |
+| Skill design issues | `skill-design` | `references/structure-rules.md` |
+| Agent orchestration | `orchestration-patterns` | `references/context-isolation.md` |
+| Hook related | `hook-templates` | `references/full-examples.md` |
+| Workflow state | `workflow-state-patterns` | `references/complete-workflow-example.md` |
+
+### Level 2: Radical Solutions 🔥
+
+> **"If you're confident, propose it even if it's not in existing patterns"**
+
+When conservative solutions feel like **band-aids**, consider:
+
+| Situation | Radical Question | Possible Proposal |
+|-----------|-----------------|-------------------|
+| Same problem recurring | "Is the system structure wrong?" | **Full architecture redesign** |
+| Exceptions outnumber rules | "Is the rule itself wrong?" | **Discard and redefine rules** |
+| Complex workarounds | "Why not tackle it head-on?" | **Remove the constraint itself** |
+| Compatibility band-aids | "What if we drop legacy?" | **Execute breaking change** |
+| Slow improvements | "What if we rebuild from scratch?" | **Clean slate reconstruction** |
+
+**Criteria for proposing radical solutions**:
+1. First explain limits of conservative solution
+2. Explicitly state trade-offs of radical solution
+3. Indicate **confidence level** (High/Medium/Exploratory)
+4. Provide concrete execution steps
+
+**Output format**:
+```markdown
+### 🔥 Radical Solution: {proposal}
+
+**Why this is right**:
+{rationale - fundamental limits of existing approach}
+
+**Trade-off**:
+- Gains: {benefits}
+- Losses: {costs}
+
+**Confidence Level**: High | Medium | Exploratory
+
+**Execution Steps**:
+1. {step 1}
+2. {step 2}
+...
+```
+
+**Detailed process**: `Read("references/solution-synthesis.md")`
 
 ---
 

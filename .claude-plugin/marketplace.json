@@ -1,7 +1,7 @@
 {
   "name": "skillmaker-marketplace",
   "description": "Skillmaker: Create perfect skills and subagents that use them with isolated context",
-  "version": "2.12.0",
+  "version": "2.13.0",
   "owner": {
     "name": "Chanho KIM"
   },
@@ -11,7 +11,7 @@
       "name": "skillmaker",
       "description": "Create perfect skills and subagents that use them explicitly. Solve the context window problem with skill-based architecture.",
       "source": "./",
-      "version": "2.12.0",
+      "version": "2.13.0",
       "author": {
         "name": "Chanho KIM"
       },

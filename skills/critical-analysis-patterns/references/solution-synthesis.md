@@ -297,15 +297,169 @@ claude mcp add --transport sse serena-daemon http://127.0.0.1:8765
 
 ---
 
-## 자동 스킬 로딩 규칙
+## Level 2: Radical Solutions 🔥
 
-분석 중 다음 패턴 발견 시 자동으로 스킬 로드:
+> **"If you're confident, propose it even if it's not in existing patterns"**
+> **"Idiots, this solves everything - why can't you see it?"**
 
-| 감지 패턴 | 자동 로드 |
-|----------|----------|
-| MCP 도구 사용 시도 | `mcp-gateway-patterns` |
-| agents/ 디렉토리 존재 | `orchestration-patterns` |
-| skills/ 디렉토리 존재 | `skill-design` |
-| hooks/ 디렉토리 존재 | `hook-templates` |
-| 다단계 워크플로우 | `workflow-state-patterns` |
-| Gateway/Subprocess 언급 | `mcp-gateway-patterns` |
+When conservative solutions feel like **band-aids**, propose paradigm-shifting alternatives.
+
+### When to Propose Radical Solutions?
+
+| Signal | Meaning | Radical Approach |
+|--------|---------|------------------|
+| Same problem 3+ times | System structure issue | **Architecture redesign** |
+| Exceptions outnumber rules | Rule itself is wrong | **Discard rules** |
+| Workaround more complex than normal path | Constraint is irrational | **Remove constraint** |
+| "That's just how it is" response | Law of inertia | **Review from first principles** |
+| Compatibility cost > value | Legacy debt | **Breaking change** |
+
+### Radical Questions Framework
+
+```markdown
+## 1. Constraint Dissolution
+- "Who created this constraint? Why?"
+- "What would we do without this constraint?"
+- "Is the situation that created this constraint still valid?"
+
+## 2. First Principles
+- "If we redefine this problem from scratch?"
+- "What is physically/logically impossible?"
+- "If it's physically possible, why aren't we doing it?"
+
+## 3. 10x Thinking
+- "If there's a 10x better method, what is it?"
+- "What if the current method is completely wrong?"
+- "How would a competitor build this from scratch?"
+
+## 4. Inversion
+- "What happens if we don't solve this problem?"
+- "How would we make this problem worse?" (do the opposite)
+- "When would this feature be unnecessary?"
+```
+
+### Radical Solution Output Format
+
+```markdown
+### 🔥 Radical Solution: {proposal}
+
+**Fundamental limits of current approach**:
+{why conservative solutions won't work}
+
+**Proposal**:
+{paradigm shift or structural redesign}
+
+**Why this is right**:
+- {rationale 1}
+- {rationale 2}
+- {rationale 3}
+
+**Trade-off**:
+| Gains | Losses |
+|-------|--------|
+| {benefit 1} | {cost 1} |
+| {benefit 2} | {cost 2} |
+
+**Confidence Level**: 🟢 High | 🟡 Medium | 🔴 Exploratory
+
+**Execution Steps**:
+1. {step 1}
+2. {step 2}
+3. {step 3}
+
+**Expected Impact**:
+- Short-term: {immediate impact}
+- Long-term: {long-term benefit}
+```
+
+### Radical Solution Examples
+
+#### Example 1: Gateway Pattern Failure
+
+**Conservative solution**: Workaround with Daemon SSE pattern
+**Radical solution**: 
+
+```markdown
+### 🔥 Radical Solution: Discard Gateway Concept Entirely
+
+**Fundamental limits of current approach**:
+Gateway pattern assumes "centralized MCP access", but
+Claude Code's subagent isolation invalidates this premise.
+Daemon pattern is ultimately "a workaround to save Gateway".
+
+**Proposal**:
+Discard Gateway concept and transition to **MCP-free architecture**.
+- Analyze all MCP dependencies
+- For each dependency: is MCP really necessary?
+- Alternatives: CLI wrapper, REST API, direct library calls
+
+**Why this is right**:
+- MCP is convenience, not necessity
+- Complete elimination of MCP overhead (startup time, tokens)
+- Subagent isolation problem solved at source
+
+**Trade-off**:
+| Gains | Losses |
+|-------|--------|
+| 0-second startup | MCP ecosystem compatibility |
+| 0 token overhead | Tool autocomplete |
+| Architecture simplification | MCP-based extensibility |
+
+**Confidence Level**: 🟡 Medium (depends on project dependencies)
+
+**Execution Steps**:
+1. Extract list of MCP tool usage
+2. Analyze alternatives for each tool (CLI? API? Library?)
+3. Start migration with lowest-cost alternatives
+4. Progressively remove MCP dependencies
+```
+
+#### Example 2: Hook Over-Complexity
+
+**Conservative solution**: Consolidate hooks, remove unnecessary hooks
+**Radical solution**:
+
+```markdown
+### 🔥 Radical Solution: Replace Hook System with LLM Self-Control
+
+**Fundamental limits of current approach**:
+Hooks assume "we don't trust the LLM".
+As hooks increase, system complexity grows.
+Eventually, hook management becomes a bigger problem than the original issue.
+
+**Proposal**:
+Minimize hooks and replace with **enhanced system prompts**.
+- Only use hooks for things that truly need blocking
+- Solve the rest with clear instructions + examples
+
+**Why this is right**:
+- Modern LLMs (Claude 3.5+) have very high instruction compliance rates
+- Hook debugging cost > occasional violation cost
+- Dramatic reduction in system complexity
+
+**Confidence Level**: 🟡 Medium (depends on organization's policy on LLM trust)
+```
+
+### Rules for Proposing Radical Solutions
+
+1. **Always present conservative solution first**
+2. **Explicitly state limits** of conservative solution
+3. **Honestly disclose trade-offs** of radical solution
+4. **Indicate confidence level** (🟢/🟡/🔴)
+5. **Choice belongs to user** - don't force
+6. Radical ≠ irresponsible. **Concrete execution steps are mandatory**
+
+---
+
+## Automatic Skill Loading Rules
+
+Auto-load skills when following patterns detected during analysis:
+
+| Detection Pattern | Auto-Load |
+|-------------------|-----------|
+| MCP tool usage attempted | `mcp-gateway-patterns` |
+| agents/ directory exists | `orchestration-patterns` |
+| skills/ directory exists | `skill-design` |
+| hooks/ directory exists | `hook-templates` |
+| Multi-stage workflow | `workflow-state-patterns` |
+| Gateway/Subprocess mentioned | `mcp-gateway-patterns` |

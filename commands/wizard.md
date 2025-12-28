@@ -568,7 +568,64 @@ Do NOT follow a fixed checklist. Instead:
    | Document enforcement fails | Hookify with PreToolUse | See `hook-templates` |
    | Long SKILL.md | Progressive disclosure | Create `references/` directory |
 
-   ### Step 7d: 실행 제안
+   ### Step 7d: Radical Solutions 🔥
+
+   > **"If you're confident, propose it even if it's not in existing patterns"**
+   > **"Idiots, this solves everything - why can't you see it?"**
+
+   When conservative solutions (Level 1) feel like **band-aids**, propose paradigm-shifting alternatives.
+
+   **Conditions for proposing radical solutions**:
+   - Same type of problem found 3+ times
+   - Exceptions outnumber rules
+   - Workarounds more complex than the normal path
+   - Expected response is "that's just how it is"
+
+   **Radical questions**:
+   ```
+   - "Who created this constraint? Why? Is it still valid?"
+   - "What is physically/logically impossible?"
+   - "If there's a 10x better method, what is it?"
+   - "If we rebuilt from scratch, how would we do it?"
+   - "When would this feature be unnecessary?"
+   ```
+
+   **Output format**:
+   ```markdown
+   ### 🔥 Radical Solution: {proposal}
+
+   **Fundamental limits of current approach**:
+   {why conservative solutions won't work}
+
+   **Proposal**:
+   {paradigm shift or structural redesign}
+
+   **Why this is right**:
+   - {rationale 1}
+   - {rationale 2}
+
+   **Trade-off**:
+   | Gains | Losses |
+   |-------|--------|
+   | {benefit} | {cost} |
+
+   **Confidence Level**: 🟢 High | 🟡 Medium | 🔴 Exploratory
+
+   **Execution Steps**:
+   1. {step 1}
+   2. {step 2}
+   ```
+
+   **Examples**:
+   - ❌ "Use Daemon pattern as workaround" (conservative)
+   - ✅ "Remove MCP dependency entirely - Gateway problem solved at source. Replace with CLI wrapper." (radical)
+
+   - ❌ "Consolidate your hooks" (conservative)
+   - ✅ "Replace hook system with enhanced system prompts. Modern LLMs have very high instruction compliance." (radical)
+
+   **Details**: `Read("references/solution-synthesis.md")` → Level 2: Radical Solutions section
+
+   ### Step 7e: 실행 제안
 
    해결책을 추출한 후:
 
@@ -588,17 +645,23 @@ Do NOT follow a fixed checklist. Instead:
          description: "지금은 적용하지 않음"
    ```
 
-   **적극성 체크리스트**:
-   - [ ] 문제 발견 → 관련 스킬 즉시 로드했는가?
-   - [ ] 스킬의 references/ 문서를 읽었는가?
-   - [ ] 구체적인 구현 명령/코드를 추출했는가?
-   - [ ] 사용자가 바로 실행 가능한 형태로 제시했는가?
-   - [ ] "스킬 로드하세요"에서 그치지 않았는가?
+   **Proactiveness Checklist**:
+   - [ ] Problem found → Immediately loaded relevant skill?
+   - [ ] Read the skill's references/ documents?
+   - [ ] Extracted concrete implementation commands/code?
+   - [ ] Presented in immediately executable form for user?
+   - [ ] Didn't stop at "load this skill"?
+   - [ ] **Proposed radical alternatives when conservative solutions felt like band-aids?**
+   - [ ] **Considered structural redesign when same problem recurs?**
+   - [ ] **Didn't accept "that's just how it is" as given?**
 
-   **금지 행동**:
-   - ❌ "mcp-gateway-patterns 스킬을 참고하세요" (수동적)
-   - ❌ "Daemon 패턴이 있습니다" (구체성 부족)
-   - ✅ "Daemon SSE 패턴 적용: `python -m serena --sse --port 8080`" (즉시 실행 가능)
+   **Forbidden behaviors**:
+   - ❌ "Refer to mcp-gateway-patterns skill" (passive)
+   - ❌ "There's a Daemon pattern" (lacks specificity)
+   - ❌ **"That's just how it is" (accepting inertia)**
+   - ❌ **Only proposing conservative solutions (lacks creativity)**
+   - ✅ "Apply Daemon SSE pattern: `python -m serena --sse --port 8080`" (immediately executable)
+   - ✅ **"Removing MCP dependency entirely solves this problem at source" (radical alternative)**
 
 8. **Contextual Improvement Suggestions**
 
