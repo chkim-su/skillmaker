@@ -29,11 +29,12 @@ def main():
         sys.exit(0)
 
     # Detect skill file access patterns
+    # NOTE: references/ is NOT included - reading references after Skill() load is the
+    # correct progressive disclosure pattern. Only warn on direct SKILL.md access.
     skill_patterns = [
-        r'/skills/[^/]+/SKILL\.md',       # Direct SKILL.md read
-        r'/skills/[^/]+/references/',      # Skill references
-        r'\.claude/skills/[^/]+/',         # .claude/skills directory
-        r'plugins/.*/skills/[^/]+/'        # Plugin skills
+        r'/skills/[^/]+/SKILL\.md',        # Direct SKILL.md read (should use Skill())
+        r'\.claude/skills/[^/]+/SKILL\.md', # .claude/skills SKILL.md
+        r'plugins/.*/skills/[^/]+/SKILL\.md' # Plugin SKILL.md
     ]
 
     for pattern in skill_patterns:
