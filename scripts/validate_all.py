@@ -91,11 +91,13 @@ class ErrorCode:
     E025 = "E025"  # plugin.json version doesn't match marketplace.json version
     E026 = "E026"  # Duplicate plugin registration (same plugin from multiple marketplaces)
     E027 = "E027"  # hooks.json schema invalid (Claude Code 1.0.40+ schema)
-    # Pattern compliance warnings (W029-W032)
+    # Pattern compliance warnings (W029-W034)
     W029 = "W029"  # Skill missing recommended frontmatter fields (name, description, allowed-tools)
     W030 = "W030"  # Agent missing recommended frontmatter fields (name, description, tools, skills)
     W031 = "W031"  # Skill content exceeds recommended limit (progressive disclosure violation)
     W032 = "W032"  # Skill references not separated into references/ subdirectory
+    W033 = "W033"  # Agent/command declares skills but doesn't use Skill() tool pattern
+    W034 = "W034"  # Multi-stage workflow without per-stage skill loading (should hookify)
 
 
 # Schema patterns (regex)
@@ -2684,10 +2686,20 @@ def validate_against_official_patterns(plugin_root: Path) -> ValidationResult:
     result.warnings.extend(skill_patterns_result.warnings)
     result.passed.extend(skill_patterns_result.passed)
 
-    # Pattern 6: Agent orchestration patterns compliance (W030)
+    # Pattern 6: Agent orchestration patterns compliance (W030, W033)
     agent_patterns_result = check_agent_patterns(plugin_root)
     result.warnings.extend(agent_patterns_result.warnings)
     result.passed.extend(agent_patterns_result.passed)
+
+    # Pattern 7: Command skill usage (W033)
+    command_skill_result = check_command_skill_usage(plugin_root)
+    result.warnings.extend(command_skill_result.warnings)
+    result.passed.extend(command_skill_result.passed)
+
+    # Pattern 8: Multi-stage workflow detection (W034)
+    workflow_result = check_multistage_workflow_hookify(plugin_root)
+    result.warnings.extend(workflow_result.warnings)
+    result.passed.extend(workflow_result.passed)
 
     return result
 
@@ -2979,11 +2991,160 @@ def check_agent_patterns(plugin_root: Path) -> ValidationResult:
                         result.add_pass(f'Agent "{agent_name}": Uses local skill "{skill_name}"')
                     # Note: Global skills from other plugins are valid but can't be verified here
 
+            # W033: Check if agent uses Skill() tool when skills are declared
+            body_content = parts[2] if len(parts) >= 3 else content
+            skill_call_patterns = [
+                r'Skill\s*\(',           # Skill(
+                r'Skill\s*tool',          # Skill tool
+                r'invoke.*skill',         # invoke skill
+                r'load.*skill',           # load skill
+                r'use.*Skill',            # use Skill
+            ]
+            has_skill_call = any(re.search(p, body_content, re.IGNORECASE) for p in skill_call_patterns)
+
+            if 'skills' in frontmatter_raw and not has_skill_call:
+                result.add_warning(
+                    f'[W033] Agent "{agent_name}": Declares skills in frontmatter but no Skill() usage found\n'
+                    f'       Pattern: Skills should be loaded via Skill("plugin:skill-name") tool.\n'
+                    f'       Declared skills: {frontmatter_raw["skills"]}'
+                )
+            elif 'skills' in frontmatter_raw and has_skill_call:
+                result.add_pass(f'Agent "{agent_name}": Uses Skill() tool for skill loading')
+
         except Exception as e:
             result.add_warning(f'Could not analyze agent "{agent_name}": {e}')
 
     if agents_checked == 0:
         result.add_pass("No agents to check for pattern compliance")
+
+    return result
+
+
+def check_multistage_workflow_hookify(plugin_root: Path) -> ValidationResult:
+    """
+    W034: Detect multi-stage workflows that should use per-stage skill loading.
+
+    Multi-stage indicators:
+    - Phase/Step/Stage headers with numbers
+    - Sequential process patterns
+    - Complex workflows without skill calls per stage
+    """
+    result = ValidationResult()
+
+    # Directories to check
+    dirs_to_check = [
+        (plugin_root / "agents", "agent"),
+        (plugin_root / "commands", "command"),
+    ]
+
+    # Multi-stage workflow patterns
+    stage_patterns = [
+        r'#{1,3}\s*(Phase|Step|Stage|단계)\s*\d',      # ## Phase 1, ## Step 1, ## 단계 1
+        r'#{1,3}\s*\d+\.\s',                           # ## 1. Something
+        r'#{1,3}\s*(First|Second|Third|Fourth|Fifth)', # ## First, ## Second
+        r'#{1,3}\s*(처음|둘째|셋째|첫번째|두번째)',      # Korean ordinals
+    ]
+
+    for check_dir, file_type in dirs_to_check:
+        if not check_dir.exists():
+            continue
+
+        for md_file in check_dir.glob("*.md"):
+            try:
+                content = md_file.read_text(encoding='utf-8')
+                file_name = md_file.stem
+
+                # Count stage headers
+                stage_count = 0
+                for pattern in stage_patterns:
+                    matches = re.findall(pattern, content, re.IGNORECASE | re.MULTILINE)
+                    stage_count += len(matches)
+
+                # If 3+ stages detected, check for per-stage skill loading
+                if stage_count >= 3:
+                    # Count Skill() calls
+                    skill_calls = len(re.findall(r'Skill\s*\(', content))
+
+                    # Complex workflow without adequate skill calls
+                    if skill_calls < stage_count // 2:
+                        result.add_warning(
+                            f'[W034] {file_type.title()} "{file_name}": Multi-stage workflow ({stage_count} stages) '
+                            f'with only {skill_calls} Skill() calls\n'
+                            f'       Pattern: Each stage should load relevant skills for context isolation.\n'
+                            f'       Consider: Add Skill() calls per stage, or hookify with PreToolUse/PostToolUse.'
+                        )
+                    else:
+                        result.add_pass(f'{file_type.title()} "{file_name}": Multi-stage workflow with adequate skill loading')
+
+            except Exception:
+                pass
+
+    return result
+
+
+def check_command_skill_usage(plugin_root: Path) -> ValidationResult:
+    """
+    W033: Check if commands that reference skills use Skill() tool.
+    """
+    result = ValidationResult()
+    commands_dir = plugin_root / "commands"
+
+    if not commands_dir.exists():
+        return result
+
+    # Get available skills in this plugin
+    skills_dir = plugin_root / "skills"
+    available_skills = set()
+    if skills_dir.exists():
+        for skill_dir in skills_dir.iterdir():
+            if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+                available_skills.add(skill_dir.name)
+
+    if not available_skills:
+        return result
+
+    commands_checked = 0
+
+    for cmd_md in commands_dir.glob("*.md"):
+        commands_checked += 1
+
+        try:
+            content = cmd_md.read_text(encoding='utf-8')
+            cmd_name = cmd_md.stem
+
+            # Check if command references any skills by name
+            skills_mentioned = []
+            for skill in available_skills:
+                if skill in content:
+                    skills_mentioned.append(skill)
+
+            if not skills_mentioned:
+                continue
+
+            # Check if command uses Skill() tool
+            skill_call_patterns = [
+                r'Skill\s*\(',           # Skill(
+                r'Skill\s*tool',          # Skill tool
+                r'invoke.*skill',         # invoke skill
+                r'load.*skill',           # load skill
+            ]
+            has_skill_call = any(re.search(p, content, re.IGNORECASE) for p in skill_call_patterns)
+
+            if skills_mentioned and not has_skill_call:
+                result.add_warning(
+                    f'[W033] Command "{cmd_name}": References skills but no Skill() usage found\n'
+                    f'       Pattern: Skills should be loaded via Skill("plugin:skill-name") tool.\n'
+                    f'       Mentioned skills: {", ".join(skills_mentioned[:3])}'
+                    f'{"..." if len(skills_mentioned) > 3 else ""}'
+                )
+            elif skills_mentioned and has_skill_call:
+                result.add_pass(f'Command "{cmd_name}": Uses Skill() tool for skill loading')
+
+        except Exception as e:
+            result.add_warning(f'Could not analyze command "{cmd_name}": {e}')
+
+    if commands_checked == 0:
+        result.add_pass("No commands to check for skill usage")
 
     return result
 

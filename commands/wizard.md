@@ -495,6 +495,8 @@ The validation script performs **comprehensive multi-layer checking**:
 | **Skill Design** | **W031** | **Skill content exceeds 500 words (progressive disclosure)** |
 | **Skill Design** | **W032** | **Skill has long sections but no references/ directory** |
 | **Agent Patterns** | **W030** | **Agent missing frontmatter (name, description, tools, skills)** |
+| **Skill Calling** | **W033** | **Agent/command declares skills but no Skill() usage found** |
+| **Workflow** | **W034** | **Multi-stage workflow without per-stage skill loading** |
 | Edge Case | Null/empty source | Catches `source: null`, `source: ""`, `source: {}` |
 | Edge Case | Wrong key names | Detects `"type"` instead of `"source"` |
 | Pattern | Official patterns | Validates against official Claude plugin structure |
@@ -673,6 +675,68 @@ skill-name/
 ```
 
 **해결 방법**: `references/` 디렉토리 생성 후 상세 내용 이동
+
+### W033: Missing Skill() Tool Usage (Warning)
+
+**증상**: 에이전트/커맨드가 스킬을 선언하거나 참조하지만 Skill() 호출이 없음
+
+**원인 1**: Frontmatter에 skills 선언했지만 본문에 Skill() 패턴 없음
+```yaml
+---
+skills: skill-design, orchestration-patterns  # 선언됨
+---
+# Agent Body
+에이전트가 스킬을 사용하는 방법에 대한 언급 없음  # Skill() 없음
+```
+
+**원인 2**: 커맨드가 스킬 이름을 언급하지만 로딩 패턴 없음
+
+**해결 방법**:
+1. **선언적 (frontmatter)**: 이미 `skills:` 선언 시 자동 로딩됨 - 경고 무시 가능
+2. **명령적 (body)**: 명시적 로딩 추가
+   ```
+   Load skill: `Skill("skillmaker:skill-design")`
+   ```
+
+**참고**: frontmatter의 `skills:` 선언은 에이전트 시작 시 자동 로딩되므로 명시적 Skill() 불필요할 수 있음.
+
+### W034: Multi-Stage Workflow Without Per-Stage Skill Loading (Warning)
+
+**증상**: 다단계 워크플로우(3개 이상)가 있지만 단계별 Skill() 호출이 부족함
+
+**원인**:
+```markdown
+## Phase 1: 탐색
+...코드 탐색 로직...
+
+## Phase 2: 분석
+...분석 로직...
+
+## Phase 3: 수정
+...수정 로직...
+
+## Phase 4: 검증
+...검증 로직...
+```
+→ 4단계 워크플로우이지만 Skill() 호출 0개
+
+**문제**:
+- 각 단계마다 다른 컨텍스트가 필요할 수 있음
+- 모든 스킬이 한번에 로딩되면 컨텍스트 비효율
+
+**해결 방법**:
+1. **단계별 스킬 로딩**:
+   ```markdown
+   ## Phase 1: 탐색
+   Load: `Skill("skillmaker:orchestration-patterns")`
+
+   ## Phase 2: 분석
+   Load: `Skill("skillmaker:skill-design")`
+   ```
+
+2. **또는 Hookify**:
+   - PreToolUse hook으로 단계 전환 시 스킬 자동 로딩
+   - 워크플로우 상태 추적 후 적절한 스킬 제안
 
 ## Execution Steps
 
