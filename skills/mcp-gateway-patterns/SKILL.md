@@ -1,18 +1,48 @@
 ---
 name: mcp-gateway-patterns
 description: MCP Gateway design patterns for both Agent Gateway and Subprocess isolation. Use when designing MCP integrations.
-allowed-tools: ["Read", "Write", "Grep", "Glob"]
+allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob"]
 ---
 
 # MCP Gateway Patterns
 
 Heavy MCP servers consume context tokens. Two isolation strategies exist.
 
-## Quick Start
+## Critical Knowledge
 
-1. Choose strategy: Agent Gateway (frequent) or Subprocess (rare)
-2. Define 2-layer protocol: Intent → Action
-3. Create gateway agent or subprocess wrapper
+### MCP Registration Methods
+
+| Method | File Location | Correct? |
+|--------|---------------|----------|
+| `claude mcp add --scope user` | `~/.claude.json` | ✅ |
+| `claude mcp add --scope project` | `.mcp.json` | ✅ |
+| Manual `~/.claude/mcp_servers.json` | Legacy file | ❌ NOT READ |
+
+**Correct Registration:**
+```bash
+claude mcp add --transport stdio --scope user <name> -- <command> [args...]
+```
+
+---
+
+### Agent MCP Access Rules
+
+| `tools:` Setting | MCP Access | Example |
+|------------------|------------|---------|
+| Empty/Omitted | ✅ All tools | `tools:` |
+| Explicit list (no MCP) | ❌ NO access | `tools: ["Read", "Write"]` |
+| Explicit list (with MCP) | ✅ Listed only | `tools: ["Read", "mcp__serena__*"]` |
+
+---
+
+### MCP Tool Naming Convention
+
+| Registration Type | Tool Name Pattern |
+|-------------------|-------------------|
+| Plugin MCP | `mcp__plugin_<server>_<server>__<tool>` |
+| User MCP | `mcp__<server>__<tool>` |
+
+---
 
 ## Strategy Selection
 
@@ -22,6 +52,8 @@ Heavy MCP servers consume context tokens. Two isolation strategies exist.
 | State | Continuous | Stateless |
 | Latency | Low | 5-15s startup |
 | Token overhead | Acceptable | Zero |
+
+---
 
 ## 2-Layer Protocol
 
@@ -35,12 +67,14 @@ Heavy MCP servers consume context tokens. Two isolation strategies exist.
 
 **Layer 2 - Action**: MCP-specific tool names
 
+---
+
 ## Gateway Template
 
 ```yaml
 ---
 name: {mcp}-gateway
-tools: [mcp__{mcp}__{tool1}, ...]
+tools:  # Empty = all tools including MCP
 model: sonnet
 ---
 ```
@@ -50,15 +84,28 @@ Responsibilities:
 2. Pre-validation for MODIFY
 3. Atomic JSON responses
 
-## Best Practices
+---
 
-1. **One gateway per MCP**
-2. **Intent drives policy** - timeout/retry based on intent
-3. **Effect for safety** - MUTATING requires pre-validation
-4. **Always JSON** - even on error
+## Common Issues
+
+### "MCP tools not visible"
+- **Cause:** Session not restarted after `claude mcp add`
+- **Fix:** Restart Claude Code
+
+### "Tool not found in subagent"
+- **Cause:** Agent has explicit `tools:` list without MCP
+- **Fix:** Empty `tools:` or add MCP tools to list
+
+### "Wrong tool name format"
+- **Cause:** Mixing plugin (`mcp__plugin_x_x__`) and user (`mcp__x__`) formats
+- **Fix:** Check `claude mcp list` for actual server name prefix
+
+---
 
 ## References
 
 - [Agent Gateway Template](references/agent-gateway-template.md)
 - [Subprocess Gateway](references/subprocess-gateway.md)
 - [Protocol Schema](references/protocol-schema.md)
+- [Setup Automation](references/setup-automation.md)
+- [Validation Patterns](references/validation-patterns.md)
