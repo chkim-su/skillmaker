@@ -565,7 +565,7 @@ def validate_frontmatter_fields(plugin_root: Path) -> ValidationResult:
                 fm["description"] = f"TODO: Add description for {agent_file.stem}"
                 needs_fix = True
                 result.add_error(f"{agent_file.name}: Missing 'description' field")
-            if not fm.get("tools"):
+            if "tools" not in fm:
                 hint = get_skill_hint("W030", "agent tools")
                 result.add_warning(f"W030: {agent_file.name}: Missing 'tools' field{hint}")
 
