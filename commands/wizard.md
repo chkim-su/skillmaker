@@ -4,6 +4,24 @@ argument-hint: "describe what to create (e.g., 'API skill', 'database agent')"
 allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob", "Task", "Skill", "AskUserQuestion"]
 ---
 
+# ⚠️ Self-Enforcement Notice (W028 Compliance)
+
+> **Per skillmaker's own principles**: "문서 기반 강제는 무의미합니다"
+
+This wizard uses MUST/CRITICAL keywords throughout. Here's their enforcement status:
+
+| Keyword Usage | Hookified? | Enforcement Mechanism |
+|---------------|------------|----------------------|
+| "MUST run validation" | ✅ Yes | `PreToolUse/PostToolUse → validate_all.py` |
+| "MUST pass before proceeding" | ✅ Yes | `PostToolUse → validate_all.py` (blocks on error) |
+| "CRITICAL: run script" | ✅ Yes | `PreToolUse:Bash → validate_all.py` |
+| Solution Synthesis steps | ⚠️ **NOT YET** | Recommended only (no hook) |
+
+**Known Limitation**: ANALYZE route's Solution Synthesis (Step 7) is guidance only.
+To fully enforce skill loading and solution extraction, implement `workflow-state-patterns` gate.
+
+---
+
 # Complexity-Based Skill Loading
 
 Before routing, detect complexity level from input and load appropriate skills:
@@ -484,6 +502,12 @@ Do NOT follow a fixed checklist. Instead:
 7. **Solution Synthesis (해결책 종합)** - INTELLIGENT CONSULTING
 
    > **진단에서 그치지 말고, 해결책을 제시하라**
+
+   > ⚠️ **NOT YET HOOKIFIED** - 이 단계는 현재 문서 권고만 있음.
+   > 완전한 강제를 위해서는 `workflow-state-patterns` 게이트 구현 필요.
+   > 그러나 **이 단계를 건너뛰면 ANALYZE의 가치가 절반**입니다.
+
+   **REQUIRED ACTIONS** (문서 강제이지만 반드시 수행):
 
    각 발견된 문제에 대해:
 
