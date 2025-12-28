@@ -1,50 +1,106 @@
 ---
 name: critical-analysis-patterns
-description: 철학적/메타적 프로젝트 분석 - "왜?"를 묻는 비평적 분석 프레임워크
+description: Philosophical/meta project analysis - critical analysis framework that asks "why?"
 allowed-tools: ["Read", "Glob", "Grep", "Task"]
 ---
 
 # Critical Analysis Patterns
 
-기술적 검증을 넘어 **의도와 구현의 정합성**을 분석합니다.
+Beyond technical validation, analyze **alignment between intent and implementation**.
 
-## Core Questions (5가지 핵심 질문)
+---
 
-모든 컴포넌트에 대해 다음 질문을 던지세요:
+## Canonical Implementation Principle 📐
 
-### 1. 존재 정당성 (Existence Justification)
-```
-- "이것이 왜 여기 있는가?"
-- "제거하면 무엇이 깨지는가?"
-- "다른 것으로 대체 가능한가?"
+> **skillmaker aims for "canonical implementation" of plugins, agents, and marketplaces.**
+
+### Active Recommendation
+
+When analyzing projects, **actively recommend skillmaker's "good practices"** for similar/equivalent features:
+
+| Domain | Canonical Pattern | Skill to Load |
+|--------|------------------|---------------|
+| MCP integration | Daemon SSE isolation | `mcp-gateway-patterns` |
+| Skill structure | Progressive disclosure | `skill-design` |
+| Agent design | Context isolation | `orchestration-patterns` |
+| Behavior enforcement | Hookification | `hook-templates` |
+| Multi-stage workflow | State files + gates | `workflow-state-patterns` |
+| Skill discovery | Keyword triggers | `skill-activation-patterns` |
+
+### When Project Uses Different Approach
+
+If the project uses a different method, determine:
+
+| Question | Verdict | Action |
+|----------|---------|--------|
+| "Is this approach inferior?" | Deficient | **Recommend canonical pattern** |
+| "Is this a valid domain-specific choice?" | Respectable | **Acknowledge and document trade-offs** |
+| "Is this actually better?" | Superior | **Learn from it, consider adopting** |
+
+### Evaluation Criteria
+
+```markdown
+## Deficiency Indicators (recommend change)
+- Reinventing what skillmaker already solved
+- Missing enforcement (MUST keywords without hooks)
+- Ignoring known anti-patterns
+- Unnecessary complexity vs canonical approach
+
+## Domain-Specific Indicators (respect choice)
+- Different constraints that invalidate canonical approach
+- Performance requirements that justify deviation
+- Ecosystem compatibility requirements
+- Documented rationale for deviation
 ```
 
-### 2. 의도-구현 정합성 (Intent-Implementation Alignment)
+### Example: MCP Analysis
+
+When project uses MCP:
+
+1. **Load**: `Skill("skillmaker:mcp-gateway-patterns")`
+2. **Check**: Is Daemon SSE pattern being used?
+3. **If not**: 
+   - Is there a documented reason?
+   - Does their approach handle subagent isolation?
+   - Recommend Daemon pattern if deficient
+
+## Core Questions (6 Questions)
+
+Ask these questions for every component:
+
+### 1. Existence Justification
 ```
-- "이름이 실제 역할을 반영하는가?"
-- "선언된 목적과 실제 동작이 일치하는가?"
-- "문서와 코드가 동기화되어 있는가?"
+- "Why is this here?"
+- "What breaks if we remove it?"
+- "Can it be replaced with something else?"
 ```
 
-### 3. 일관성 (Consistency)
+### 2. Intent-Implementation Alignment
 ```
-- "비슷한 것들이 다르게 처리되고 있지 않은가?"
-- "패턴 A와 B가 혼재하지 않는가?"
-- "예외적인 처리가 정당화되는가?"
-```
-
-### 4. 미사용 기능 (Unused Capabilities)
-```
-- "선언했지만 사용하지 않는 것이 있는가?"
-- "구현했지만 호출되지 않는 것이 있는가?"
-- "있는데 왜 안 쓰는가?"
+- "Does the name reflect the actual role?"
+- "Does declared purpose match actual behavior?"
+- "Are documentation and code synchronized?"
 ```
 
-### 5. 복잡성 정당화 (Complexity Justification)
+### 3. Consistency
 ```
-- "이 복잡성이 정말 필요한가?"
-- "더 단순한 대안이 있는가?"
-- "오버엔지니어링은 아닌가?"
+- "Are similar things being handled differently?"
+- "Are patterns A and B mixed?"
+- "Is exceptional handling justified?"
+```
+
+### 4. Unused Capabilities
+```
+- "Is there something declared but not used?"
+- "Is there something implemented but never called?"
+- "Why isn't it being used?"
+```
+
+### 5. Complexity Justification
+```
+- "Is this complexity truly necessary?"
+- "Is there a simpler alternative?"
+- "Is this over-engineering?"
 ```
 
 ### 6. Fundamental Redesign 🔥
@@ -70,45 +126,46 @@ Beyond conservative solutions (deletion, exceptions, workarounds), ask questions
 
 ## Analysis Process
 
-### Step 1: 컴포넌트 인벤토리
+### Step 1: Component Inventory
 ```bash
-# 모든 컴포넌트 수집
+# Collect all components
 agents/*.md, skills/*/SKILL.md, commands/*.md, hooks/hooks.json
 ```
 
-### Step 2: 관계 맵핑
+### Step 2: Relationship Mapping
 | From | To | Relationship |
-|------|----|--------------|
+|------|----|--------------| 
 | command | agent | invokes via Task |
 | agent | skill | loads via Skill() or frontmatter |
 | hook | agent/skill | triggers on events |
 
-### Step 3: 핵심 질문 적용
-각 컴포넌트에 5가지 질문을 적용하고 불일치 발견
+### Step 3: Apply Core Questions
+Apply 6 questions to each component and discover inconsistencies
 
-### Step 4: 발견 사항 정리
+### Step 4: Organize Findings
 
 ## Output Format
 
 ```markdown
-### 철학적 분석 결과
+### Philosophical Analysis Results
 
-| 발견 | 질문 | 제안 |
-|-----|-----|-----|
-| {무엇} | {왜?} | {대안} |
+| Finding | Question | Suggestion |
+|---------|----------|------------|
+| {what} | {why?} | {alternative} |
 ```
 
 ---
 
-## Red Flags (즉시 질문해야 할 신호)
+## Red Flags (Signals That Require Immediate Questioning)
 
-| 신호 | 질문 | 상세 |
-|-----|-----|-----|
-| agents/에 있지만 tools: [] | "에이전트인가 문서인가?" | `Read("references/intent-vs-implementation.md")` |
-| 선언된 skills 미사용 | "왜 선언만 하고 안 쓰는가?" | `Read("references/unused-capability-detection.md")` |
-| 90%+ 유사한 워크플로우 분리 | "통합 안 하는 이유가 있는가?" | `Read("references/architectural-smell-catalog.md")` |
-| Hook 20개+ | "오버엔지니어링 아닌가?" | 복잡성 정당화 필요 |
-| 책임 중복 컴포넌트 | "경계가 명확한가?" | 역할 재정의 필요 |
+| Signal | Question | Details |
+|--------|----------|---------|
+| In agents/ but tools: [] | "Is this an agent or documentation?" | `Read("references/intent-vs-implementation.md")` |
+| Declared skills unused | "Why declared but not used?" | `Read("references/unused-capability-detection.md")` |
+| 90%+ similar workflows separated | "Is there a reason not to consolidate?" | `Read("references/architectural-smell-catalog.md")` |
+| 20+ Hooks | "Is this over-engineering?" | Complexity justification required |
+| Components with overlapping responsibilities | "Are boundaries clear?" | Role redefinition required |
+| Non-canonical pattern used | "Is skillmaker's canonical approach applicable?" | Load relevant skill and compare |
 
 ---
 
@@ -175,10 +232,12 @@ When conservative solutions feel like **band-aids**, consider:
 
 ## Quick Checklist
 
-분석 시 빠르게 확인할 항목:
+Items to verify quickly during analysis:
 
-- [ ] 모든 agents/가 실제로 에이전트 역할을 하는가?
-- [ ] skills 선언과 Skill() 사용이 일치하는가?
-- [ ] 비슷한 Hook들이 공통 패턴으로 추출 가능하지 않은가?
-- [ ] 문서에 남은 구 아키텍처 흔적이 없는가?
-- [ ] 각 컴포넌트의 존재 이유를 한 문장으로 설명 가능한가?
+- [ ] Do all agents/ actually function as agents?
+- [ ] Do skill declarations match Skill() usage?
+- [ ] Can similar Hooks be extracted into common patterns?
+- [ ] Are there old architecture remnants in documentation?
+- [ ] Can each component's existence be explained in one sentence?
+- [ ] Does the project follow skillmaker's canonical patterns?
+- [ ] If different approach used, is there documented rationale?

@@ -476,14 +476,14 @@ Do NOT follow a fixed checklist. Instead:
    - If has hooks/ directory → Hookify compliance check
    - If uses MCP → `Skill("skillmaker:mcp-gateway-patterns")` analysis
 
-6. **Critical Analysis (철학적 분석)**
+6. **Critical Analysis + Canonical Pattern Comparison**
 
    After technical validation, load critical analysis:
    ```
    Skill("skillmaker:critical-analysis-patterns")
    ```
 
-   Apply the **5 Core Questions** to each component:
+   ### 6a: Apply the **6 Core Questions** to each component:
 
    | Question | What to Ask |
    |----------|-------------|
@@ -494,74 +494,116 @@ Do NOT follow a fixed checklist. Instead:
    | 복잡성 정당화 | "이 복잡성이 정말 필요한가? 더 단순한 대안은?" |
 
    **Red Flags to Detect**:
-   - agents/에 있지만 tools: [] → "에이전트인가 문서인가?"
-   - 90%+ 유사한 워크플로우 분리 → "통합 안 하는 이유가 있는가?"
-   - 책임이 중복되는 컴포넌트 → "경계가 명확한가?"
-   - 구 아키텍처 문서 잔재 → "현재 아키텍처를 반영하는가?"
+   - agents/ with tools: [] → "Is this an agent or documentation?"
+   - 90%+ similar workflows separated → "Is there a reason not to consolidate?"
+   - Components with overlapping responsibilities → "Are boundaries clear?"
+   - Old architecture document remnants → "Does this reflect current architecture?"
+   - Non-canonical patterns used → "Is skillmaker's canonical approach applicable?"
 
-7. **Solution Synthesis (해결책 종합)** - PROACTIVE CONSULTING
+   ### 6b: Canonical Pattern Comparison (PROACTIVE RECOMMENDATION)
 
-   > **문제를 발견했으면, 해결책을 즉시 추출하고 적용 방법을 제시하라**
-   > **"스킬 로드하세요"에서 그치지 말고, 스킬을 직접 로드하고 해결책을 추출해서 보여줘라**
+   > **skillmaker aims to be the "canonical implementation" of plugins/agents/marketplaces.**
+   > **Actively recommend skillmaker patterns when analyzing any project.**
+
+   **Compare against canonical patterns:**
+
+   | Domain | Check | Load Skill | Compare Against |
+   |--------|-------|------------|-----------------|
+   | MCP integration | Daemon SSE? | `mcp-gateway-patterns` | `daemon-shared-server.md` |
+   | Skill structure | Progressive disclosure? | `skill-design` | `structure-rules.md` |
+   | Agent design | Context isolation? | `orchestration-patterns` | `context-isolation.md` |
+   | Behavior enforcement | Hookified? | `hook-templates` | `full-examples.md` |
+   | Workflows | State + gates? | `workflow-state-patterns` | `complete-workflow-example.md` |
+   | Skill discovery | Keyword triggers? | `skill-activation-patterns` | Auto-activation patterns |
+
+   **Evaluation process:**
+
+   1. **Identify patterns used in the project** (MCP, skills, agents, hooks, etc.)
+   2. **Load corresponding skillmaker skill**
+   3. **Compare implementation against canonical approach**
+   4. **Issue verdict:**
+
+   | Verdict | Criteria | Action |
+   |---------|----------|--------|
+   | **Deficient** | Reinventing solved problems, missing enforcement, ignoring anti-patterns | **Recommend canonical pattern** |
+   | **Respectable** | Valid domain-specific choice with documented rationale | **Acknowledge trade-offs** |
+   | **Superior** | Actually better than skillmaker's approach | **Learn from it** |
+
+   **Example output:**
+   ```markdown
+   ### Canonical Pattern Analysis
+
+   | Pattern | Project's Approach | Verdict | Recommendation |
+   |---------|-------------------|---------|----------------|
+   | MCP access | Gateway agent | 🔴 Deficient | Use Daemon SSE (mcp-gateway-patterns) |
+   | Skill design | 1500-word SKILL.md | 🟡 Deficient | Progressive disclosure + references/ |
+   | Hook enforcement | None | 🔴 Deficient | Hookify MUST keywords (hook-templates) |
+   | Agent isolation | Uses Skill() | 🟢 Canonical | ✓ Following best practice |
+   ```
+
+7. **Solution Synthesis** - PROACTIVE CONSULTING
+
+   > **When problems are found, immediately extract solutions and show how to apply them**
+   > **Don't stop at "load this skill" - actually load the skill and extract concrete solutions**
 
    > ✅ **HOOKIFIED (v2.11.0)** - `PostToolUse:Task → solution-synthesis-gate.py`
-   > ANALYZE 완료 시 Solution Synthesis 섹션이 없으면 경고를 표시합니다.
+   > Displays warning if Solution Synthesis section is missing after ANALYZE completes.
 
-   **MANDATORY PROACTIVE BEHAVIOR** (적극적 실행 필수):
+   **MANDATORY PROACTIVE BEHAVIOR**:
 
-   ### Step 7a: 문제 발견 즉시 관련 스킬 로드 (자동)
+   ### Step 7a: Immediately Load Relevant Skills When Problems Found (Automatic)
 
-   문제가 발견되면 **즉시** 관련 스킬을 로드하고 해결책을 추출:
+   When problems are found, **immediately** load relevant skills and extract solutions:
 
-   | 문제 패턴 | 즉시 실행 |
+   | Problem Pattern | Immediate Action |
    |----------|----------|
    | MCP/Gateway/Subprocess/subagent cannot access | `Skill("skillmaker:mcp-gateway-patterns")` → **Read daemon-shared-server.md** |
-   | 스킬 설계/frontmatter/references 부족 | `Skill("skillmaker:skill-design")` → **Read structure-rules.md** |
-   | 에이전트 tools:[]/context isolation | `Skill("skillmaker:orchestration-patterns")` → **Read context-isolation.md** |
-   | MUST/CRITICAL 키워드/hook 부재 | `Skill("skillmaker:hook-templates")` → **Read full-examples.md** |
-   | 워크플로우/상태/게이트 | `Skill("skillmaker:workflow-state-patterns")` → **Read complete-workflow-example.md** |
+   | Skill design/frontmatter/references lacking | `Skill("skillmaker:skill-design")` → **Read structure-rules.md** |
+   | Agent tools:[]/context isolation | `Skill("skillmaker:orchestration-patterns")` → **Read context-isolation.md** |
+   | MUST/CRITICAL keywords/missing hooks | `Skill("skillmaker:hook-templates")` → **Read full-examples.md** |
+   | Workflow/state/gates | `Skill("skillmaker:workflow-state-patterns")` → **Read complete-workflow-example.md** |
 
-   **예시 - MCP Gateway 문제 발견 시:**
+   **Example - When MCP Gateway issue found:**
    ```
-   # 1. 스킬 로드
+   # 1. Load skill
    Skill("skillmaker:mcp-gateway-patterns")
 
-   # 2. 해결책 문서 읽기
+   # 2. Read solution document
    Read("references/daemon-shared-server.md")
 
-   # 3. 구체적 해결책 추출하여 즉시 제시
+   # 3. Extract and present concrete solution immediately
    ```
 
-   ### Step 7b: 해결책 직접 추출 및 제시 (스스로 수행)
+   ### Step 7b: Extract and Present Solutions Directly (Do It Yourself)
 
-   **DO**: 스킬을 로드하고 references/를 읽어 해결책을 직접 추출
-   **DON'T**: "이 스킬을 로드하세요"만 말하고 사용자에게 떠넘기기
+   **DO**: Load skills and read references/ to extract solutions directly
+   **DON'T**: Just say "load this skill" and leave it to the user
 
    ```markdown
-   #### 🔴 문제: {finding}
+   #### 🔴 Problem: {finding}
 
-   **근본 원인** (스킬 지식 기반):
-   {mcp-gateway-patterns에서: "Subagents cannot access MCP tools directly"}
-   {orchestration-patterns에서: "tools: [] means no tool access"}
+   **Root Cause** (from skill knowledge):
+   {from mcp-gateway-patterns: "Subagents cannot access MCP tools directly"}
+   {from orchestration-patterns: "tools: [] means no tool access"}
 
-   **해결책** (스킬에서 직접 추출):
-   {daemon-shared-server.md에서 추출한 구체적 방법}
+   **Solution** (extracted from skill):
+   {concrete method extracted from daemon-shared-server.md}
 
-   **구현 단계**:
-   1. MCP 서버를 데몬으로 시작: `python -m mcp_server --sse --port 8080`
-   2. Claude Code에 등록: `claude mcp add --transport sse --url http://localhost:8080`
-   3. 에이전트에서 MCP 도구 접근 가능해짐
+   **Implementation Steps**:
+   1. Start MCP server as daemon: `python -m mcp_server --sse --port 8080`
+   2. Register with Claude Code: `claude mcp add --transport sse --url http://localhost:8080`
+   3. Agent now has MCP tool access
 
-   **검증 방법**:
+   **Verification**:
    ```bash
-   claude mcp list  # 등록 확인
+   claude mcp list  # Verify registration
    ```
    ```
 
-   ### Step 7c: Known Solutions 매핑 (즉시 적용 가능한 해결책)
+   ### Step 7c: Known Solutions Mapping (Immediately Applicable Solutions)
 
-   | 문제 | skillmaker 해결책 | 구현 명령 |
-   |------|------------------|----------|
+   | Problem | skillmaker Solution | Implementation Command |
+   |---------|---------------------|----------------------|
    | Subagent cannot access MCP | Daemon (SSE) pattern | `python -m mcp_server --sse` |
    | Gateway agent doesn't work | Daemon isolation (MCP as service) | See `daemon-shared-server.md` |
    | tools: [] but need MCP | Empty tools = no MCP access | Add tools explicitly or use daemon |
@@ -625,24 +667,24 @@ Do NOT follow a fixed checklist. Instead:
 
    **Details**: `Read("references/solution-synthesis.md")` → Level 2: Radical Solutions section
 
-   ### Step 7e: 실행 제안
+   ### Step 7e: Execution Proposal
 
-   해결책을 추출한 후:
+   After extracting solutions:
 
    ```yaml
    AskUserQuestion:
-     question: "추출된 해결책을 적용할까요?"
-     header: "실행"
+     question: "Apply extracted solutions?"
+     header: "Execute"
      multiSelect: true
      options:
-       - label: "{Solution 1}: {구체적 방법}"
+       - label: "{Solution 1}: {concrete method}"
          description: "{expected outcome}"
-       - label: "{Solution 2}: {구체적 방법}"
+       - label: "{Solution 2}: {concrete method}"
          description: "{expected outcome}"
-       - label: "모두 적용 (Recommended)"
-         description: "모든 해결책 순차 적용"
-       - label: "분석만"
-         description: "지금은 적용하지 않음"
+       - label: "Apply All (Recommended)"
+         description: "Apply all solutions sequentially"
+       - label: "Analysis only"
+         description: "Don't apply now"
    ```
 
    **Proactiveness Checklist**:
