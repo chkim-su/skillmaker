@@ -458,7 +458,39 @@ Do NOT follow a fixed checklist. Instead:
    - If has hooks/ directory → Hookify compliance check
    - If uses MCP → `Skill("skillmaker:mcp-gateway-patterns")` analysis
 
-6. **Contextual Improvement Suggestions**
+6. **Critical Analysis (철학적 분석)** - NEW
+
+   After technical validation, load critical analysis:
+   ```
+   Skill("skillmaker:critical-analysis-patterns")
+   ```
+
+   Apply the **5 Core Questions** to each component:
+
+   | Question | What to Ask |
+   |----------|-------------|
+   | 존재 정당성 | "이것이 왜 여기 있는가? 제거하면 뭐가 깨지나?" |
+   | 의도-구현 정합성 | "이름과 역할이 일치하는가? 문서와 코드가 동기화되어 있는가?" |
+   | 일관성 | "비슷한 것들이 다르게 처리되고 있지 않은가?" |
+   | 미사용 기능 | "선언했지만 안 쓰는 것이 있는가?" |
+   | 복잡성 정당화 | "이 복잡성이 정말 필요한가? 더 단순한 대안은?" |
+
+   **Red Flags to Detect**:
+   - agents/에 있지만 tools: [] → "에이전트인가 문서인가?"
+   - 90%+ 유사한 워크플로우 분리 → "통합 안 하는 이유가 있는가?"
+   - 책임이 중복되는 컴포넌트 → "경계가 명확한가?"
+   - 구 아키텍처 문서 잔재 → "현재 아키텍처를 반영하는가?"
+
+   **Output Format**:
+   ```markdown
+   ### 철학적 분석
+
+   | 발견 | 질문 | 제안 |
+   |-----|-----|-----|
+   | {무엇을 발견했는가} | {왜?} | {대안} |
+   ```
+
+7. **Contextual Improvement Suggestions**
 
    Based on actual findings, suggest:
    - Architecture improvements specific to this project

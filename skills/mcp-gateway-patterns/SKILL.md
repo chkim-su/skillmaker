@@ -1,12 +1,12 @@
 ---
 name: mcp-gateway-patterns
-description: MCP Gateway design patterns for both Agent Gateway and Subprocess isolation. Use when designing MCP integrations.
+description: MCP Gateway design patterns for Agent Gateway, Subprocess, and Daemon isolation. Use when designing MCP integrations.
 allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob"]
 ---
 
 # MCP Gateway Patterns
 
-Heavy MCP servers consume context tokens. Two isolation strategies exist.
+Heavy MCP servers consume context tokens. Three isolation strategies exist.
 
 ## Critical Knowledge
 
@@ -46,12 +46,42 @@ claude mcp add --transport stdio --scope user <name> -- <command> [args...]
 
 ## Strategy Selection (Empirically Verified)
 
-| Criteria | Agent Gateway | Subprocess Bridge |
-|----------|---------------|-------------------|
-| Startup latency | ~1s | **30-60s** (measured) |
-| Token overhead | ~350 tokens/tool | **Zero** in main session |
-| State | Continuous | Stateless (per-call) |
-| Best for | > 10 calls/session | < 3 calls/session |
+> **📌 Default Recommendation: Daemon (SSE)**
+>
+> Daemon pattern provides the best balance: **fast startup (1-2s)** + **zero token overhead** + **state sharing**.
+> Only use alternatives when specific constraints apply.
+
+| Criteria | Daemon (SSE) ⭐ | Agent Gateway | Subprocess |
+|----------|----------------|---------------|------------|
+| Startup latency | **1-2s** | ~1s | 30-60s |
+| Token overhead | **Zero** | ~350/tool | Zero |
+| State sharing | ✅ Yes | ✅ Yes | ❌ No |
+| Setup effort | Medium | Low | Low |
+
+### Decision Guide
+
+```
+Start with Daemon (default)
+    │
+    ├── Can't run background process? → Agent Gateway
+    │       (serverless, restricted env)
+    │
+    ├── Air-gapped / offline only? → Subprocess
+    │       (no network, rare use)
+    │
+    └── Simple project, token OK? → Agent Gateway
+            (quick setup preferred)
+```
+
+### When to Use Alternatives
+
+| Constraint | Alternative |
+|------------|-------------|
+| Cannot run background daemon | Agent Gateway |
+| Serverless environment (Lambda, Cloud Functions) | Agent Gateway |
+| Offline/air-gapped environment | Subprocess |
+| MCP used < 2 times per session | Subprocess |
+| Quick prototype, token budget OK | Agent Gateway |
 
 ### Token Savings by MCP (Measured)
 
@@ -113,11 +143,33 @@ Responsibilities:
 
 ---
 
+## Daemon Quick Start
+
+```bash
+# 1. Start daemon (one time)
+uvx --from git+https://github.com/oraios/serena \
+  serena start-mcp-server --transport sse --port 8765 --project-from-cwd &
+
+# 2. Register with Claude Code
+claude mcp add --transport sse --scope user serena-daemon http://127.0.0.1:8765
+
+# 3. Restart Claude Code, then use normally
+```
+
+---
+
 ## References
 
-- [Agent Gateway Template](references/agent-gateway-template.md)
-- [Subprocess Gateway](references/subprocess-gateway.md)
-- [**Subprocess Research Report**](references/subprocess-research-report.md) - Empirical findings
+### Core Patterns
+- [Agent Gateway Template](references/agent-gateway-template.md) - Standard inherited MCP
+- [Subprocess Gateway](references/subprocess-gateway.md) - Per-call isolation
+- [**Daemon Shared Server**](references/daemon-shared-server.md) - Persistent HTTP/SSE server
+
+### Research & Analysis
+- [Subprocess Research Report](references/subprocess-research-report.md) - Empirical findings
+- [**Approach Comparison Appendix**](references/approach-comparison-appendix.md) - All approaches with pros/cons
+
+### Setup & Validation
 - [Protocol Schema](references/protocol-schema.md)
 - [Setup Automation](references/setup-automation.md)
 - [Validation Patterns](references/validation-patterns.md)
