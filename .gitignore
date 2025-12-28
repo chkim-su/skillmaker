@@ -14,6 +14,11 @@ Thumbs.db
 *.log
 .cache/
 
+# Workflow state files (serena-refactor, etc.)
+.inject-*
+.refactor-*
+.workflow-*
+
 # Node (if any tests added)
 node_modules/
 package-lock.json
