@@ -93,6 +93,24 @@ agents/*.md, skills/*/SKILL.md, commands/*.md, hooks/hooks.json
 
 ---
 
+## Solution Synthesis (해결책 종합)
+
+> **진단 + 처방 = 컨설팅**
+
+문제를 발견했으면, 그에 맞는 해결책을 skillmaker 스킬에서 찾아 제안합니다.
+
+| 발견 패턴 | 관련 스킬 | 해결책 참조 |
+|----------|----------|-----------|
+| MCP/Gateway 문제 | `mcp-gateway-patterns` | `references/daemon-shared-server.md` |
+| 스킬 설계 문제 | `skill-design` | `references/structure-rules.md` |
+| 에이전트 오케스트레이션 | `orchestration-patterns` | `references/context-isolation.md` |
+| Hook 관련 | `hook-templates` | `references/full-examples.md` |
+| 워크플로우 상태 | `workflow-state-patterns` | `references/complete-workflow-example.md` |
+
+**상세 프로세스**: `Read("references/solution-synthesis.md")`
+
+---
+
 ## Quick Checklist
 
 분석 시 빠르게 확인할 항목:

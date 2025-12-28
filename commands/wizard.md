@@ -458,7 +458,7 @@ Do NOT follow a fixed checklist. Instead:
    - If has hooks/ directory → Hookify compliance check
    - If uses MCP → `Skill("skillmaker:mcp-gateway-patterns")` analysis
 
-6. **Critical Analysis (철학적 분석)** - NEW
+6. **Critical Analysis (철학적 분석)**
 
    After technical validation, load critical analysis:
    ```
@@ -481,16 +481,79 @@ Do NOT follow a fixed checklist. Instead:
    - 책임이 중복되는 컴포넌트 → "경계가 명확한가?"
    - 구 아키텍처 문서 잔재 → "현재 아키텍처를 반영하는가?"
 
-   **Output Format**:
-   ```markdown
-   ### 철학적 분석
+7. **Solution Synthesis (해결책 종합)** - INTELLIGENT CONSULTING
 
-   | 발견 | 질문 | 제안 |
-   |-----|-----|-----|
-   | {무엇을 발견했는가} | {왜?} | {대안} |
+   > **진단에서 그치지 말고, 해결책을 제시하라**
+
+   각 발견된 문제에 대해:
+
+   ### Step 7a: 문제 분류 및 관련 스킬 식별
+
+   | 문제 패턴 | 자동 로드 스킬 |
+   |----------|---------------|
+   | MCP/Gateway/Subprocess 관련 | `Skill("skillmaker:mcp-gateway-patterns")` |
+   | 스킬 설계/frontmatter/references | `Skill("skillmaker:skill-design")` |
+   | 에이전트/tools:[]/오케스트레이션 | `Skill("skillmaker:orchestration-patterns")` |
+   | Hook/PreToolUse/MUST 키워드 | `Skill("skillmaker:hook-templates")` |
+   | 워크플로우/상태/게이트 | `Skill("skillmaker:workflow-state-patterns")` |
+
+   ### Step 7b: 해결책 추출
+
+   로드된 스킬에서 해결책 참조:
+   ```
+   Read("references/{relevant-file}.md")
    ```
 
-7. **Contextual Improvement Suggestions**
+   ### Step 7c: 해결책 출력 형식
+
+   ```markdown
+   #### 🔴 문제: {finding}
+
+   **왜 이런 문제가 생겼는가?**
+   {root cause from skillmaker knowledge}
+
+   **관련 지식**: `Skill("skillmaker:{skill-name}")`
+
+   **해결책**:
+   {specific solution from skill reference}
+
+   **구현 방법**:
+   ```bash
+   {concrete implementation steps}
+   ```
+
+   **상세**: `Read("references/{file}.md")`
+   ```
+
+   ### Step 7d: 실행 제안
+
+   모든 문제 분석 후:
+
+   ```yaml
+   AskUserQuestion:
+     question: "어떤 해결책을 적용할까요?"
+     header: "실행"
+     multiSelect: true
+     options:
+       - label: "{Solution 1}"
+         description: "{impact}"
+       - label: "{Solution 2}"
+         description: "{impact}"
+       - label: "모두 적용"
+         description: "권장 해결책 전체 적용"
+       - label: "분석만"
+         description: "지금은 적용하지 않음"
+   ```
+
+   **핵심 원칙**:
+   - 문제만 나열하지 말고, **왜** 그런 문제가 생겼는지 설명
+   - skillmaker의 어느 스킬이 이 문제를 다루는지 명시
+   - 구체적인 **구현 방법** 제시
+   - 실행할지 **사용자에게 제안**
+
+   **참조**: `Read("references/solution-synthesis.md")` for full problem-solution mapping
+
+8. **Contextual Improvement Suggestions**
 
    Based on actual findings, suggest:
    - Architecture improvements specific to this project
@@ -510,11 +573,39 @@ Do NOT follow a fixed checklist. Instead:
 ### 검증 결과
 {validation output}
 
-### 설계 원칙 분석
-{context-specific analysis based on project type}
+### 철학적 분석
 
-### 개선 제안
-{specific, actionable suggestions based on actual findings}
+| # | 발견 | 질문 | 심각도 |
+|---|------|------|--------|
+| 1 | {finding} | {core question} | 🔴/🟡/🟢 |
+
+---
+
+### 해결책 종합
+
+#### 🔴 문제 1: {finding}
+
+**왜 이런 문제가 생겼는가?**
+{root cause analysis}
+
+**관련 지식**: `Skill("skillmaker:{skill}")`
+
+**해결책**: {solution from skill}
+
+**구현**:
+\`\`\`bash
+{concrete steps}
+\`\`\`
+
+---
+
+### 실행 제안
+
+| # | 해결책 | 예상 영향 |
+|---|--------|----------|
+| 1 | {solution} | {impact} |
+
+**진행하시겠습니까?** [모두 적용 / 선택 적용 / 분석만]
 ```
 
 ## Key Difference from VALIDATE
