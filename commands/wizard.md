@@ -491,6 +491,10 @@ The validation script performs **comprehensive multi-layer checking**:
 | **Remote Access** | **E019** | **External GitHub repo not accessible** |
 | **Remote Files** | **E020** | **External repo missing required files** |
 | **Hookify** | **W028** | **Enforcement keywords (MUST/REQUIRED/CRITICAL) without hooks** |
+| **Skill Design** | **W029** | **Skill missing frontmatter (name, description, allowed-tools)** |
+| **Skill Design** | **W031** | **Skill content exceeds 500 words (progressive disclosure)** |
+| **Skill Design** | **W032** | **Skill has long sections but no references/ directory** |
+| **Agent Patterns** | **W030** | **Agent missing frontmatter (name, description, tools, skills)** |
 | Edge Case | Null/empty source | Catches `source: null`, `source: ""`, `source: {}` |
 | Edge Case | Wrong key names | Detects `"type"` instead of `"source"` |
 | Pattern | Official patterns | Validates against official Claude plugin structure |
@@ -603,6 +607,72 @@ agents/my-agent.md: "CRITICAL: Never read files directly"
 **예시**:
 - ❌ SKILL.md: "MUST use Skill() tool" → 에이전트가 무시함
 - ✅ PreToolUse hook: Read/Grep/Glob 시 skill 파일 접근 경고
+
+### W029: Skill Frontmatter Missing (Warning)
+
+**증상**: 스킬의 SKILL.md에 필수 frontmatter 필드가 누락됨
+
+**필수 필드**:
+```yaml
+---
+name: skill-name
+description: What this skill does
+allowed-tools: ["Read", "Write", "Bash"]
+---
+```
+
+**문제**: frontmatter가 없으면 Claude Code가 스킬을 올바르게 로드하지 못할 수 있음
+
+**해결 방법**: SKILL.md 상단에 YAML frontmatter 추가
+
+### W030: Agent Frontmatter Missing (Warning)
+
+**증상**: 에이전트 .md 파일에 필수 frontmatter 필드가 누락됨
+
+**필수 필드**:
+```yaml
+---
+name: agent-name
+description: What this agent does
+tools: ["Read", "Write", "Task"]
+skills: skill-name, other-skill
+---
+```
+
+**문제**: frontmatter가 없으면 Task 에이전트로 사용 시 올바르게 작동하지 않음
+
+**해결 방법**: 에이전트 .md 상단에 YAML frontmatter 추가
+
+### W031: Skill Content Too Long (Warning)
+
+**증상**: SKILL.md 핵심 콘텐츠가 500단어를 초과함
+
+**원인**: Progressive disclosure 패턴 위반
+```
+SKILL.md: 1200 words (권장: <500)
+```
+
+**문제**: 긴 스킬은 컨텍스트를 과도하게 소비하고 핵심 지침이 묻힘
+
+**해결 방법**:
+1. 핵심 지침만 SKILL.md에 유지
+2. 상세 내용을 `references/` 디렉토리로 이동
+3. SKILL.md에서 `Read("references/details.md")` 로 참조
+
+### W032: Missing references/ Directory (Warning)
+
+**증상**: SKILL.md에 긴 섹션이 있지만 references/ 디렉토리가 없음
+
+**패턴**: skill-design은 상세 내용 분리를 권장
+```
+skill-name/
+├── SKILL.md         # 핵심 지침 (<500 words)
+└── references/      # 상세 문서 (on-demand 로드)
+    ├── details.md
+    └── examples.md
+```
+
+**해결 방법**: `references/` 디렉토리 생성 후 상세 내용 이동
 
 ## Execution Steps
 

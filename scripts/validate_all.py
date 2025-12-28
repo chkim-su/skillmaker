@@ -91,6 +91,11 @@ class ErrorCode:
     E025 = "E025"  # plugin.json version doesn't match marketplace.json version
     E026 = "E026"  # Duplicate plugin registration (same plugin from multiple marketplaces)
     E027 = "E027"  # hooks.json schema invalid (Claude Code 1.0.40+ schema)
+    # Pattern compliance warnings (W029-W032)
+    W029 = "W029"  # Skill missing recommended frontmatter fields (name, description, allowed-tools)
+    W030 = "W030"  # Agent missing recommended frontmatter fields (name, description, tools, skills)
+    W031 = "W031"  # Skill content exceeds recommended limit (progressive disclosure violation)
+    W032 = "W032"  # Skill references not separated into references/ subdirectory
 
 
 # Schema patterns (regex)
@@ -2674,6 +2679,16 @@ def validate_against_official_patterns(plugin_root: Path) -> ValidationResult:
     result.warnings.extend(hookify_result.warnings)
     result.passed.extend(hookify_result.passed)
 
+    # Pattern 5: Skill design patterns compliance (W029, W031, W032)
+    skill_patterns_result = check_skill_design_patterns(plugin_root)
+    result.warnings.extend(skill_patterns_result.warnings)
+    result.passed.extend(skill_patterns_result.passed)
+
+    # Pattern 6: Agent orchestration patterns compliance (W030)
+    agent_patterns_result = check_agent_patterns(plugin_root)
+    result.warnings.extend(agent_patterns_result.warnings)
+    result.passed.extend(agent_patterns_result.passed)
+
     return result
 
 
@@ -2767,6 +2782,208 @@ def check_hookify_requirements(plugin_root: Path) -> ValidationResult:
         result.add_pass(f"Hookify check: {len(enforcement_found)} enforcement keywords found, hooks.json exists")
     elif not enforcement_found:
         result.add_pass("Hookify check: No enforcement keywords requiring hooks")
+
+    return result
+
+
+def check_skill_design_patterns(plugin_root: Path) -> ValidationResult:
+    """
+    W029, W031, W032: Check if skills follow skill-design patterns.
+
+    Checks:
+    - Frontmatter has name, description, allowed-tools
+    - Core content is under 500 words (progressive disclosure)
+    - Detailed content is in references/ subdirectory
+    """
+    result = ValidationResult()
+    skills_dir = plugin_root / "skills"
+
+    if not skills_dir.exists():
+        return result
+
+    # Required frontmatter fields for skills
+    required_fields = ["name", "description"]
+    recommended_fields = ["allowed-tools"]
+
+    skills_checked = 0
+
+    for skill_dir in skills_dir.iterdir():
+        if not skill_dir.is_dir():
+            continue
+
+        skill_md = skill_dir / "SKILL.md"
+        if not skill_md.exists():
+            continue  # E009 handles this
+
+        skills_checked += 1
+
+        try:
+            content = skill_md.read_text(encoding='utf-8')
+
+            # Parse frontmatter
+            frontmatter = {}
+            if content.startswith('---'):
+                parts = content.split('---', 2)
+                if len(parts) >= 3:
+                    fm_content = parts[1].strip()
+                    for line in fm_content.split('\n'):
+                        if ':' in line:
+                            key = line.split(':')[0].strip()
+                            frontmatter[key] = True
+                    body_content = parts[2]
+                else:
+                    body_content = content
+            else:
+                body_content = content
+
+            # W029: Check frontmatter fields
+            missing_required = [f for f in required_fields if f not in frontmatter]
+            missing_recommended = [f for f in recommended_fields if f not in frontmatter]
+
+            if missing_required:
+                result.add_warning(
+                    f'[W029] Skill "{skill_dir.name}": Missing required frontmatter: {", ".join(missing_required)}\n'
+                    f'       Pattern: skill-design requires name and description in frontmatter.'
+                )
+            elif missing_recommended:
+                result.add_warning(
+                    f'[W029] Skill "{skill_dir.name}": Missing recommended frontmatter: {", ".join(missing_recommended)}\n'
+                    f'       Pattern: skill-design recommends allowed-tools for explicit tool access.'
+                )
+            else:
+                result.add_pass(f'Skill "{skill_dir.name}": Frontmatter complete')
+
+            # W031: Check content length (progressive disclosure)
+            # Count words in body content (excluding code blocks)
+            body_no_code = re.sub(r'```[\s\S]*?```', '', body_content)
+            body_no_code = re.sub(r'`[^`]+`', '', body_no_code)
+            words = len(body_no_code.split())
+
+            if words > 800:  # Hard limit
+                result.add_warning(
+                    f'[W031] Skill "{skill_dir.name}": Core content is {words} words (recommended: <500)\n'
+                    f'       Pattern: skill-design recommends keeping SKILL.md concise.\n'
+                    f'       Action: Move detailed content to references/ subdirectory.'
+                )
+            elif words > 500:  # Soft limit
+                result.add_warning(
+                    f'[W031] Skill "{skill_dir.name}": Core content is {words} words (recommended: <500)\n'
+                    f'       Consider moving detailed sections to references/.'
+                )
+            else:
+                result.add_pass(f'Skill "{skill_dir.name}": Content length OK ({words} words)')
+
+            # W032: Check if detailed content should be in references/
+            references_dir = skill_dir / "references"
+            has_long_sections = bool(re.search(r'^#{1,3}\s.*\n(?:[^\n]+\n){20,}', body_content, re.MULTILINE))
+
+            if has_long_sections and not references_dir.exists():
+                result.add_warning(
+                    f'[W032] Skill "{skill_dir.name}": Has long sections but no references/ directory\n'
+                    f'       Pattern: skill-design recommends separating detailed docs into references/.'
+                )
+            elif references_dir.exists() and list(references_dir.glob('*.md')):
+                result.add_pass(f'Skill "{skill_dir.name}": Uses references/ for detailed content')
+
+        except Exception as e:
+            result.add_warning(f'Could not analyze skill "{skill_dir.name}": {e}')
+
+    if skills_checked == 0:
+        result.add_pass("No skills to check for pattern compliance")
+
+    return result
+
+
+def check_agent_patterns(plugin_root: Path) -> ValidationResult:
+    """
+    W030: Check if agents follow orchestration-patterns.
+
+    Checks:
+    - Frontmatter has name, description, tools
+    - Skills referenced in frontmatter exist or are available globally
+    """
+    result = ValidationResult()
+    agents_dir = plugin_root / "agents"
+
+    if not agents_dir.exists():
+        return result
+
+    # Required frontmatter fields for agents
+    required_fields = ["name", "description", "tools"]
+    recommended_fields = ["skills", "model"]
+
+    # Get available skills in this plugin
+    skills_dir = plugin_root / "skills"
+    available_skills = set()
+    if skills_dir.exists():
+        for skill_dir in skills_dir.iterdir():
+            if skill_dir.is_dir() and (skill_dir / "SKILL.md").exists():
+                available_skills.add(skill_dir.name)
+
+    agents_checked = 0
+
+    for agent_md in agents_dir.glob("*.md"):
+        agents_checked += 1
+
+        try:
+            content = agent_md.read_text(encoding='utf-8')
+
+            # Parse frontmatter
+            frontmatter = {}
+            frontmatter_raw = {}
+            if content.startswith('---'):
+                parts = content.split('---', 2)
+                if len(parts) >= 3:
+                    fm_content = parts[1].strip()
+                    for line in fm_content.split('\n'):
+                        if ':' in line:
+                            key = line.split(':')[0].strip()
+                            value = ':'.join(line.split(':')[1:]).strip()
+                            frontmatter[key] = True
+                            frontmatter_raw[key] = value
+
+            # W030: Check frontmatter fields
+            missing_required = [f for f in required_fields if f not in frontmatter]
+            missing_recommended = [f for f in recommended_fields if f not in frontmatter]
+
+            agent_name = agent_md.stem
+
+            if missing_required:
+                result.add_warning(
+                    f'[W030] Agent "{agent_name}": Missing required frontmatter: {", ".join(missing_required)}\n'
+                    f'       Pattern: orchestration-patterns requires name, description, tools.'
+                )
+            elif missing_recommended:
+                # Only warn if skills exist and could be used
+                if available_skills and 'skills' in missing_recommended:
+                    result.add_warning(
+                        f'[W030] Agent "{agent_name}": Missing recommended frontmatter: skills\n'
+                        f'       Available skills: {", ".join(sorted(available_skills)[:3])}'
+                        f'{"..." if len(available_skills) > 3 else ""}'
+                    )
+                else:
+                    result.add_pass(f'Agent "{agent_name}": Frontmatter OK')
+            else:
+                result.add_pass(f'Agent "{agent_name}": Frontmatter complete')
+
+            # Check if skills referenced exist
+            if 'skills' in frontmatter_raw:
+                skills_value = frontmatter_raw['skills']
+                # Parse comma-separated skills
+                referenced_skills = [s.strip() for s in skills_value.split(',')]
+
+                # Check if any local skills are referenced
+                for skill in referenced_skills:
+                    skill_name = skill.split(':')[-1]  # Handle plugin:skill format
+                    if skill_name in available_skills:
+                        result.add_pass(f'Agent "{agent_name}": Uses local skill "{skill_name}"')
+                    # Note: Global skills from other plugins are valid but can't be verified here
+
+        except Exception as e:
+            result.add_warning(f'Could not analyze agent "{agent_name}": {e}')
+
+    if agents_checked == 0:
+        result.add_pass("No agents to check for pattern compliance")
 
     return result
 
