@@ -66,7 +66,8 @@ def check_content_patterns(content: str, file_type: str) -> list:
             issues.append({
                 'code': 'W033',
                 'message': f'Declares skills [{frontmatter_raw["skills"]}] but no Skill() usage found',
-                'action': 'Consider: Skill("plugin:skill-name") for explicit loading, or frontmatter is sufficient'
+                'action': 'Consider: Skill("plugin:skill-name") for explicit loading, or frontmatter is sufficient',
+                'reference': 'Skill("skillmaker:orchestration-patterns") → "Skill Invocation Patterns" section'
             })
 
     # W034: Multi-stage workflow without per-stage skill loading
@@ -85,7 +86,8 @@ def check_content_patterns(content: str, file_type: str) -> list:
             issues.append({
                 'code': 'W034',
                 'message': f'Multi-stage workflow ({stage_count} stages) with only {skill_calls} Skill() calls',
-                'action': 'Consider: Per-stage skill loading for context isolation'
+                'action': 'Consider: Per-stage skill loading for context isolation',
+                'reference': 'Skill("skillmaker:workflow-state-patterns") → multi-phase workflow design'
             })
 
     # W029: Missing frontmatter (for skills)
@@ -96,7 +98,8 @@ def check_content_patterns(content: str, file_type: str) -> list:
             issues.append({
                 'code': 'W029',
                 'message': f'Missing frontmatter: {", ".join(missing)}',
-                'action': 'Add frontmatter with name, description, allowed-tools'
+                'action': 'Add frontmatter with name, description, allowed-tools',
+                'reference': 'Skill("skillmaker:skill-design") → "SKILL.md Structure" section'
             })
 
     # W030: Missing frontmatter (for agents)
@@ -107,7 +110,8 @@ def check_content_patterns(content: str, file_type: str) -> list:
             issues.append({
                 'code': 'W030',
                 'message': f'Missing frontmatter: {", ".join(missing)}',
-                'action': 'Add frontmatter with name, description, tools, skills'
+                'action': 'Add frontmatter with name, description, tools, skills',
+                'reference': 'Skill("skillmaker:orchestration-patterns") → "Agent Frontmatter" section'
             })
 
     return issues
@@ -176,10 +180,12 @@ def print_alert(context: str, name: str, issues: list):
     for issue in issues:
         print(f"  [{issue['code']}] {issue['message']}")
         print(f"         → {issue['action']}")
+        if 'reference' in issue:
+            print(f"         📚 {issue['reference']}")
         print("")
 
     print("  ℹ️  This is a notification to ensure awareness.")
-    print("     You may proceed, but please consider the patterns.")
+    print("     Load the referenced skill for detailed guidance.")
     print("━" * 55)
     print("")
 
