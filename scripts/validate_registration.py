@@ -262,46 +262,10 @@ def validate_settings_json(home_dir: Path = None) -> Tuple[List[str], List[str]]
                         f'must start with "./" or use GitHub format'
                     )
             elif isinstance(source, dict):
-                # Object format - validate structure based on discriminator
-                source_type = source.get("source")
-                if source_type is None:
+                # GitHub format - validate structure
+                if "source" not in source or "repo" not in source:
                     errors.append(
-                        f'settings.json extraKnownMarketplaces.{name}.source missing "source" discriminator field'
-                    )
-                elif source_type == "github":
-                    if "repo" not in source:
-                        errors.append(
-                            f'settings.json extraKnownMarketplaces.{name}.source (github) missing "repo" field'
-                        )
-                elif source_type == "directory":
-                    if "path" not in source:
-                        errors.append(
-                            f'settings.json extraKnownMarketplaces.{name}.source (directory) missing "path" field'
-                        )
-                elif source_type == "file":
-                    if "path" not in source:
-                        errors.append(
-                            f'settings.json extraKnownMarketplaces.{name}.source (file) missing "path" field'
-                        )
-                elif source_type == "url":
-                    if "url" not in source:
-                        errors.append(
-                            f'settings.json extraKnownMarketplaces.{name}.source (url) missing "url" field'
-                        )
-                elif source_type == "git":
-                    if "url" not in source:
-                        errors.append(
-                            f'settings.json extraKnownMarketplaces.{name}.source (git) missing "url" field'
-                        )
-                elif source_type == "npm":
-                    if "package" not in source:
-                        errors.append(
-                            f'settings.json extraKnownMarketplaces.{name}.source (npm) missing "package" field'
-                        )
-                elif source_type not in {'url', 'github', 'git', 'npm', 'file', 'directory'}:
-                    errors.append(
-                        f'settings.json extraKnownMarketplaces.{name}.source.source "{source_type}" is invalid. '
-                        f'Valid values: url, github, git, npm, file, directory'
+                        f'settings.json extraKnownMarketplaces.{name}.source missing "source" or "repo" field'
                     )
 
     return errors, warnings
@@ -325,7 +289,7 @@ def main():
     if settings_errors:
         print("SETTINGS.JSON ISSUES DETECTED:")
         for e in settings_errors:
-            print(f"  [ERROR] {e}")
+            print(f"  ❌ {e}")
         print()
 
     # Find marketplace.json
@@ -383,11 +347,11 @@ def main():
             print("COMMANDS:")
             errors, warnings, passed = validate_commands(effective_root, registered_commands)
             for e in errors:
-                print(f"  [ERROR] {e}")
+                print(f"  ❌ {e}")
             for w in warnings:
-                print(f"  [WARN]  {w}")
+                print(f"  ⚠️  {w}")
             for p in passed:
-                print(f"  [PASS] {p}")
+                print(f"  ✅ {p}")
             if not errors and not warnings and not passed:
                 print("  (none)")
             print()
@@ -400,11 +364,11 @@ def main():
             print("AGENTS:")
             errors, warnings, passed = validate_agents(effective_root, registered_agents)
             for e in errors:
-                print(f"  [ERROR] {e}")
+                print(f"  ❌ {e}")
             for w in warnings:
-                print(f"  [WARN]  {w}")
+                print(f"  ⚠️  {w}")
             for p in passed:
-                print(f"  [PASS] {p}")
+                print(f"  ✅ {p}")
             if not errors and not warnings and not passed:
                 print("  (none)")
             print()
@@ -417,11 +381,11 @@ def main():
             print("SKILLS:")
             errors, warnings, passed = validate_skills(effective_root, registered_skills)
             for e in errors:
-                print(f"  [ERROR] {e}")
+                print(f"  ❌ {e}")
             for w in warnings:
-                print(f"  [WARN]  {w}")
+                print(f"  ⚠️  {w}")
             for p in passed:
-                print(f"  [PASS] {p}")
+                print(f"  ✅ {p}")
             if not errors and not warnings and not passed:
                 print("  (none)")
             print()
@@ -433,27 +397,27 @@ def main():
     print("=" * 60)
     print("SUMMARY")
     print("=" * 60)
-    print(f"  Errors:   {len(total_errors)} [ERROR]")
-    print(f"  Warnings: {len(total_warnings)} [WARN]")
-    print(f"  Passed:   {len(total_passed)} [PASS]")
+    print(f"  Errors:   {len(total_errors)} ❌")
+    print(f"  Warnings: {len(total_warnings)} ⚠️")
+    print(f"  Passed:   {len(total_passed)} ✅")
     print()
 
     if total_errors:
-        print("STATUS: [ERROR] DEPLOYMENT WILL FAIL")
+        print("STATUS: ❌ DEPLOYMENT WILL FAIL")
         print()
         print("Fix these errors:")
         for i, e in enumerate(total_errors, 1):
             print(f"  {i}. {e}")
         sys.exit(1)
     elif total_warnings:
-        print("STATUS: [WARN]  DEPLOYMENT MAY HAVE ISSUES")
+        print("STATUS: ⚠️  DEPLOYMENT MAY HAVE ISSUES")
         print()
         print("Consider fixing these warnings:")
         for i, w in enumerate(total_warnings, 1):
             print(f"  {i}. {w}")
         sys.exit(2)
     else:
-        print("STATUS: [PASS] READY FOR DEPLOYMENT")
+        print("STATUS: ✅ READY FOR DEPLOYMENT")
         sys.exit(0)
 
 

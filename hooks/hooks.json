@@ -137,6 +137,11 @@
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py\" --skip-git",
             "timeout": 20
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/functional-test.py\" --json 2>/dev/null || true",
+            "timeout": 15
           }
         ]
       },
@@ -163,7 +168,8 @@
     },
     "enforcement_hooks": {
       "skill-access-guard.py": "Warns when skill files are read directly (use Skill() instead)",
-      "pattern-compliance-guard.py": "W033/W034 runtime alerts for agents launched via Task"
+      "pattern-compliance-guard.py": "W033/W034 runtime alerts for agents launched via Task",
+      "functional-test.py": "Context-aware functional tests (structure, registration, dependencies)"
     }
   }
 }

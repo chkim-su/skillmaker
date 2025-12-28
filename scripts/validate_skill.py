@@ -257,26 +257,26 @@ def print_results(results: List[Tuple[str, str, str]]) -> int:
         print(f"\n## {category.upper()}")
         for level, message in items:
             if level == ERROR:
-                print(f"  [ERROR] {message}")
+                print(f"  ❌ {message}")
             elif level == WARNING:
-                print(f"  [WARN]  {message}")
+                print(f"  ⚠️  {message}")
             else:
-                print(f"  [PASS] {message}")
+                print(f"  ✅ {message}")
 
     print("\n" + "-" * 60)
     print(f"Summary: {len(errors)} errors, {len(warnings)} warnings, {len(infos)} passed")
     print("-" * 60)
 
     if errors:
-        print("\n[ERROR] VALIDATION FAILED")
+        print("\n❌ VALIDATION FAILED")
         print("Fix the errors above before using this skill.")
         return 1
     elif warnings:
-        print("\n[WARN]  VALIDATION PASSED WITH WARNINGS")
+        print("\n⚠️  VALIDATION PASSED WITH WARNINGS")
         print("Consider addressing the warnings above.")
         return 0
     else:
-        print("\n[PASS] VALIDATION PASSED")
+        print("\n✅ VALIDATION PASSED")
         return 0
 
 

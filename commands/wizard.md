@@ -415,7 +415,33 @@ Do NOT follow a fixed checklist. Instead:
    python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
    ```
 
-3. **Analyze Based on Project Type**
+3. **Run Functional Tests** (MANDATORY)
+
+   After validation passes, run context-aware functional tests:
+   ```bash
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/functional-test.py      # Auto-detect changes
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/functional-test.py --all  # Test everything
+   ```
+
+   | Context | Test Scope | Command |
+   |---------|------------|---------|
+   | **New plugin** | All components | `--all` |
+   | **Modified** | Changed files only | (auto-detect) |
+   | **Debugging** | Specific component | `--component skills/my-skill` |
+
+   **Static tests** (automated):
+   - Skill structure & registration
+   - Agent dependency resolution
+   - Frontmatter validation
+
+   **Runtime tests** (require Claude Code session):
+   - `Skill("plugin:skill-name")` load test
+   - `Task` agent execution with dependencies
+   - Hook trigger verification
+
+   **[!] CRITICAL**: If functional tests fail, fix issues before proceeding.
+
+4. **Analyze Based on Project Type**
 
    | Project Type | Focus Areas |
    |--------------|-------------|
@@ -424,7 +450,7 @@ Do NOT follow a fixed checklist. Instead:
    | **Full plugin** | All above + hookify compliance, deployment readiness |
    | **MCP integration** | Gateway patterns, isolation strategy, subprocess safety |
 
-4. **Check Relevant Principles Only**
+5. **Check Relevant Principles Only**
 
    Load skills dynamically based on what's relevant:
    - If has skills/ directory → `Skill("skillmaker:skill-design")` analysis
@@ -432,7 +458,7 @@ Do NOT follow a fixed checklist. Instead:
    - If has hooks/ directory → Hookify compliance check
    - If uses MCP → `Skill("skillmaker:mcp-gateway-patterns")` analysis
 
-5. **Contextual Improvement Suggestions**
+6. **Contextual Improvement Suggestions**
 
    Based on actual findings, suggest:
    - Architecture improvements specific to this project

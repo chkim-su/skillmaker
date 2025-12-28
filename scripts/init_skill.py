@@ -85,15 +85,15 @@ TODO: First step instructions.
 
 **Script:** `python scripts/step1.py`
 
-=> If success: Continue to Step 2
-=> If error: STOP and report
+→ If success: Continue to Step 2
+→ If error: STOP and report
 
 ## Step 2: [Processing]
 
 TODO: Second step instructions.
 
-=> If condition A: Go to Step 3a
-=> If condition B: Go to Step 3b
+→ If condition A: Go to Step 3a
+→ If condition B: Go to Step 3b
 
 ## Step 3a: [Branch A]
 
@@ -251,7 +251,7 @@ python scripts/feature_b.py [args]
 ### Common Workflows
 
 1. **A then B:** `feature_a.py input | feature_b.py`
-2. **Full pipeline:** A => B => C
+2. **Full pipeline:** A → B → C
 
 ---
 
@@ -464,7 +464,7 @@ python scripts/validation/validate.py output_file
 | `scripts/operation2.py` | TODO: Purpose | `python scripts/operation2.py <input> [options]` |
 | `scripts/validation/validate.py` | Validate output | `python scripts/validation/validate.py <file>` |
 
-## [WARN] Critical: Known Limitations
+## ⚠️ Critical: Known Limitations
 
 ### Limitation 1
 - **Issue**: TODO: Describe the limitation
@@ -892,7 +892,7 @@ def init_skill(skill_name: str, output_path: Path, skill_type: str, structure: s
         gitkeep.write_text("# Add template files, images, or other assets here\n")
         print(f"Created: {gitkeep}")
 
-    print(f"\n[PASS] Skill '{skill_name}' initialized successfully!")
+    print(f"\n✅ Skill '{skill_name}' initialized successfully!")
     print(f"\nType: {skill_type} ({config['description']})")
     if structure:
         print(f"Structure: {structure} ({STRUCTURE_PATTERNS[structure]})")
