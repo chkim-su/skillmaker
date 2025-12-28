@@ -44,14 +44,25 @@ claude mcp add --transport stdio --scope user <name> -- <command> [args...]
 
 ---
 
-## Strategy Selection
+## Strategy Selection (Empirically Verified)
 
-| Criteria | Agent Gateway | Subprocess |
-|----------|---------------|------------|
-| Usage | Frequent | Rare |
-| State | Continuous | Stateless |
-| Latency | Low | 5-15s startup |
-| Token overhead | Acceptable | Zero |
+| Criteria | Agent Gateway | Subprocess Bridge |
+|----------|---------------|-------------------|
+| Startup latency | ~1s | **30-60s** (measured) |
+| Token overhead | ~350 tokens/tool | **Zero** in main session |
+| State | Continuous | Stateless (per-call) |
+| Best for | > 10 calls/session | < 3 calls/session |
+
+### Token Savings by MCP (Measured)
+
+| MCP | Tools | Overhead | Subprocess Benefit |
+|-----|-------|----------|-------------------|
+| Serena | 29 | ~10,150 | ✅ High |
+| Playwright | 25 | ~6,250 | ✅ High |
+| Greptile | 12 | ~3,600 | ⚠️ Medium |
+| Context7 | 2 | ~400 | ❌ Not worth it |
+
+**Rule**: If `tools × 350 > 5,000`, consider subprocess isolation.
 
 ---
 
@@ -106,6 +117,7 @@ Responsibilities:
 
 - [Agent Gateway Template](references/agent-gateway-template.md)
 - [Subprocess Gateway](references/subprocess-gateway.md)
+- [**Subprocess Research Report**](references/subprocess-research-report.md) - Empirical findings
 - [Protocol Schema](references/protocol-schema.md)
 - [Setup Automation](references/setup-automation.md)
 - [Validation Patterns](references/validation-patterns.md)
