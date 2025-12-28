@@ -77,6 +77,91 @@ class ValidationResult:
         self.fixes.extend(other.fixes)
 
 
+# =============================================================================
+# SKILL REFERENCES: Map warnings/problems to skillmaker skills with solutions
+# =============================================================================
+# When validation detects issues, include reference to which skill has the solution
+# Format: { "warning_pattern": ("skill_name", "reference_file", "brief_solution") }
+
+SKILL_REFERENCES = {
+    # W028: MUST/CRITICAL without hooks
+    "W028": (
+        "hook-templates",
+        "references/full-examples.md",
+        "PreToolUse/PostToolUse로 행동 강제"
+    ),
+    # W029: Skill frontmatter missing
+    "W029": (
+        "skill-design",
+        "references/structure-rules.md",
+        "YAML frontmatter: name, description, allowed-tools"
+    ),
+    # W030: Agent frontmatter missing tools
+    "W030": (
+        "orchestration-patterns",
+        "references/context-isolation.md",
+        "tools: [] = no MCP access; tools: omitted = all tools"
+    ),
+    # W031/W032: Skill content too long / missing references
+    "W031": (
+        "skill-design",
+        "references/progressive-disclosure.md",
+        "핵심 <500words, 상세는 references/로 분리"
+    ),
+    "W032": (
+        "skill-design",
+        "references/progressive-disclosure.md",
+        "references/ 디렉토리 생성 후 상세 내용 이동"
+    ),
+    # W033: Missing Skill() usage
+    "W033": (
+        "orchestration-patterns",
+        "references/skill-loading-patterns.md",
+        "Skill() 도구로 명시적 스킬 로딩"
+    ),
+    # W034: Multi-stage workflow without per-stage skill loading
+    "W034": (
+        "workflow-state-patterns",
+        "references/complete-workflow-example.md",
+        "단계별 Skill() 로딩 또는 hook-based 자동 로딩"
+    ),
+    # W035: NOT YET HOOKIFIED markers
+    "W035": (
+        "hook-templates",
+        "references/full-examples.md",
+        "PreToolUse hook으로 강제 구현"
+    ),
+    # MCP/Gateway related (detected by keywords)
+    "MCP_GATEWAY": (
+        "mcp-gateway-patterns",
+        "references/daemon-shared-server.md",
+        "Daemon (SSE) 패턴: python -m server --sse --port 8080"
+    ),
+    # Agent tools:[] issue (MCP access)
+    "AGENT_NO_MCP": (
+        "mcp-gateway-patterns",
+        "references/agent-gateway-template.md",
+        "tools: [] = MCP 접근 불가. Daemon 패턴 또는 tools 명시 필요"
+    ),
+}
+
+
+def get_skill_hint(warning_code: str, context: str = "") -> str:
+    """Get skill reference hint for a warning code."""
+    ref = SKILL_REFERENCES.get(warning_code)
+    if not ref:
+        # Check for context-based hints
+        if "gateway" in context.lower() or "mcp" in context.lower() or "subagent" in context.lower():
+            ref = SKILL_REFERENCES.get("MCP_GATEWAY")
+        elif "tools" in context.lower() and "[]" in context:
+            ref = SKILL_REFERENCES.get("AGENT_NO_MCP")
+
+    if ref:
+        skill_name, ref_file, brief = ref
+        return f"\n       → 해결: skillmaker:{skill_name} | {ref_file} | {brief}"
+    return ""
+
+
 def find_marketplace_json(start_path: Path) -> Path | None:
     """Find marketplace.json in .claude-plugin/ directory."""
     claude_plugin = start_path / ".claude-plugin"
@@ -481,7 +566,8 @@ def validate_frontmatter_fields(plugin_root: Path) -> ValidationResult:
                 needs_fix = True
                 result.add_error(f"{agent_file.name}: Missing 'description' field")
             if not fm.get("tools"):
-                result.add_warning(f"{agent_file.name}: Missing 'tools' field")
+                hint = get_skill_hint("W030", "agent tools")
+                result.add_warning(f"W030: {agent_file.name}: Missing 'tools' field{hint}")
 
             if needs_fix:
                 result.fixes.append(Fix(f"Fix frontmatter in {agent_file.name}", fix_add_frontmatter, agent_file, fm))
@@ -674,10 +760,11 @@ def validate_hookify_compliance(plugin_root: Path) -> ValidationResult:
 
     # W028: Enforcement keywords without hooks
     if files_with_enforcement and not has_hooks:
+        hint = get_skill_hint("W028")
         result.add_warning(
             f"W028: {len(files_with_enforcement)} file(s) contain enforcement keywords "
             f"(MUST/CRITICAL/REQUIRED) but no hooks/hooks.json exists. "
-            f"Document-based enforcement is ineffective."
+            f"Document-based enforcement is ineffective.{hint}"
         )
     elif files_with_enforcement and has_hooks:
         # hooks.json exists, that's good
@@ -685,9 +772,10 @@ def validate_hookify_compliance(plugin_root: Path) -> ValidationResult:
 
     # W035: Unhookified markers found
     for rel_path, count in unhookified_found:
+        hint = get_skill_hint("W035")
         result.add_warning(
             f"W035: {rel_path}: Contains {count} 'NOT YET HOOKIFIED' marker(s) - "
-            f"known limitation awaiting hookification"
+            f"known limitation awaiting hookification{hint}"
         )
 
     if not unhookified_found and files_to_check:
