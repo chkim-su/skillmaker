@@ -15,10 +15,10 @@ This wizard uses MUST/CRITICAL keywords throughout. Here's their enforcement sta
 | "MUST run validation" | ✅ Yes | `PreToolUse/PostToolUse → validate_all.py` |
 | "MUST pass before proceeding" | ✅ Yes | `PostToolUse → validate_all.py` (blocks on error) |
 | "CRITICAL: run script" | ✅ Yes | `PreToolUse:Bash → validate_all.py` |
-| Solution Synthesis steps | ⚠️ **NOT YET** | Recommended only (no hook) |
+| Solution Synthesis steps | ✅ Yes | `PostToolUse:Task → solution-synthesis-gate.py` (warning) |
 
-**Known Limitation**: ANALYZE route's Solution Synthesis (Step 7) is guidance only.
-To fully enforce skill loading and solution extraction, implement `workflow-state-patterns` gate.
+**All enforcement keywords are now hookified** (v2.11.0).
+Solution Synthesis enforcement uses warning level - does not block but alerts when section is missing.
 
 ---
 
@@ -504,8 +504,8 @@ Do NOT follow a fixed checklist. Instead:
    > **문제를 발견했으면, 해결책을 즉시 추출하고 적용 방법을 제시하라**
    > **"스킬 로드하세요"에서 그치지 말고, 스킬을 직접 로드하고 해결책을 추출해서 보여줘라**
 
-   > ⚠️ **NOT YET HOOKIFIED** - 이 단계는 현재 문서 권고만 있음.
-   > 그러나 **이 단계를 건너뛰거나 수동적으로 수행하면 ANALYZE의 가치가 없습니다**.
+   > ✅ **HOOKIFIED (v2.11.0)** - `PostToolUse:Task → solution-synthesis-gate.py`
+   > ANALYZE 완료 시 Solution Synthesis 섹션이 없으면 경고를 표시합니다.
 
    **MANDATORY PROACTIVE BEHAVIOR** (적극적 실행 필수):
 
