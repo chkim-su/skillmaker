@@ -499,83 +499,106 @@ Do NOT follow a fixed checklist. Instead:
    - 책임이 중복되는 컴포넌트 → "경계가 명확한가?"
    - 구 아키텍처 문서 잔재 → "현재 아키텍처를 반영하는가?"
 
-7. **Solution Synthesis (해결책 종합)** - INTELLIGENT CONSULTING
+7. **Solution Synthesis (해결책 종합)** - PROACTIVE CONSULTING
 
-   > **진단에서 그치지 말고, 해결책을 제시하라**
+   > **문제를 발견했으면, 해결책을 즉시 추출하고 적용 방법을 제시하라**
+   > **"스킬 로드하세요"에서 그치지 말고, 스킬을 직접 로드하고 해결책을 추출해서 보여줘라**
 
    > ⚠️ **NOT YET HOOKIFIED** - 이 단계는 현재 문서 권고만 있음.
-   > 완전한 강제를 위해서는 `workflow-state-patterns` 게이트 구현 필요.
-   > 그러나 **이 단계를 건너뛰면 ANALYZE의 가치가 절반**입니다.
+   > 그러나 **이 단계를 건너뛰거나 수동적으로 수행하면 ANALYZE의 가치가 없습니다**.
 
-   **REQUIRED ACTIONS** (문서 강제이지만 반드시 수행):
+   **MANDATORY PROACTIVE BEHAVIOR** (적극적 실행 필수):
 
-   각 발견된 문제에 대해:
+   ### Step 7a: 문제 발견 즉시 관련 스킬 로드 (자동)
 
-   ### Step 7a: 문제 분류 및 관련 스킬 식별
+   문제가 발견되면 **즉시** 관련 스킬을 로드하고 해결책을 추출:
 
-   | 문제 패턴 | 자동 로드 스킬 |
-   |----------|---------------|
-   | MCP/Gateway/Subprocess 관련 | `Skill("skillmaker:mcp-gateway-patterns")` |
-   | 스킬 설계/frontmatter/references | `Skill("skillmaker:skill-design")` |
-   | 에이전트/tools:[]/오케스트레이션 | `Skill("skillmaker:orchestration-patterns")` |
-   | Hook/PreToolUse/MUST 키워드 | `Skill("skillmaker:hook-templates")` |
-   | 워크플로우/상태/게이트 | `Skill("skillmaker:workflow-state-patterns")` |
+   | 문제 패턴 | 즉시 실행 |
+   |----------|----------|
+   | MCP/Gateway/Subprocess/subagent cannot access | `Skill("skillmaker:mcp-gateway-patterns")` → **Read daemon-shared-server.md** |
+   | 스킬 설계/frontmatter/references 부족 | `Skill("skillmaker:skill-design")` → **Read structure-rules.md** |
+   | 에이전트 tools:[]/context isolation | `Skill("skillmaker:orchestration-patterns")` → **Read context-isolation.md** |
+   | MUST/CRITICAL 키워드/hook 부재 | `Skill("skillmaker:hook-templates")` → **Read full-examples.md** |
+   | 워크플로우/상태/게이트 | `Skill("skillmaker:workflow-state-patterns")` → **Read complete-workflow-example.md** |
 
-   ### Step 7b: 해결책 추출
-
-   로드된 스킬에서 해결책 참조:
+   **예시 - MCP Gateway 문제 발견 시:**
    ```
-   Read("references/{relevant-file}.md")
+   # 1. 스킬 로드
+   Skill("skillmaker:mcp-gateway-patterns")
+
+   # 2. 해결책 문서 읽기
+   Read("references/daemon-shared-server.md")
+
+   # 3. 구체적 해결책 추출하여 즉시 제시
    ```
 
-   ### Step 7c: 해결책 출력 형식
+   ### Step 7b: 해결책 직접 추출 및 제시 (스스로 수행)
+
+   **DO**: 스킬을 로드하고 references/를 읽어 해결책을 직접 추출
+   **DON'T**: "이 스킬을 로드하세요"만 말하고 사용자에게 떠넘기기
 
    ```markdown
    #### 🔴 문제: {finding}
 
-   **왜 이런 문제가 생겼는가?**
-   {root cause from skillmaker knowledge}
+   **근본 원인** (스킬 지식 기반):
+   {mcp-gateway-patterns에서: "Subagents cannot access MCP tools directly"}
+   {orchestration-patterns에서: "tools: [] means no tool access"}
 
-   **관련 지식**: `Skill("skillmaker:{skill-name}")`
+   **해결책** (스킬에서 직접 추출):
+   {daemon-shared-server.md에서 추출한 구체적 방법}
 
-   **해결책**:
-   {specific solution from skill reference}
+   **구현 단계**:
+   1. MCP 서버를 데몬으로 시작: `python -m mcp_server --sse --port 8080`
+   2. Claude Code에 등록: `claude mcp add --transport sse --url http://localhost:8080`
+   3. 에이전트에서 MCP 도구 접근 가능해짐
 
-   **구현 방법**:
+   **검증 방법**:
    ```bash
-   {concrete implementation steps}
+   claude mcp list  # 등록 확인
+   ```
    ```
 
-   **상세**: `Read("references/{file}.md")`
-   ```
+   ### Step 7c: Known Solutions 매핑 (즉시 적용 가능한 해결책)
+
+   | 문제 | skillmaker 해결책 | 구현 명령 |
+   |------|------------------|----------|
+   | Subagent cannot access MCP | Daemon (SSE) pattern | `python -m mcp_server --sse` |
+   | Gateway agent doesn't work | Daemon isolation (MCP as service) | See `daemon-shared-server.md` |
+   | tools: [] but need MCP | Empty tools = no MCP access | Add tools explicitly or use daemon |
+   | Document enforcement fails | Hookify with PreToolUse | See `hook-templates` |
+   | Long SKILL.md | Progressive disclosure | Create `references/` directory |
 
    ### Step 7d: 실행 제안
 
-   모든 문제 분석 후:
+   해결책을 추출한 후:
 
    ```yaml
    AskUserQuestion:
-     question: "어떤 해결책을 적용할까요?"
+     question: "추출된 해결책을 적용할까요?"
      header: "실행"
      multiSelect: true
      options:
-       - label: "{Solution 1}"
-         description: "{impact}"
-       - label: "{Solution 2}"
-         description: "{impact}"
-       - label: "모두 적용"
-         description: "권장 해결책 전체 적용"
+       - label: "{Solution 1}: {구체적 방법}"
+         description: "{expected outcome}"
+       - label: "{Solution 2}: {구체적 방법}"
+         description: "{expected outcome}"
+       - label: "모두 적용 (Recommended)"
+         description: "모든 해결책 순차 적용"
        - label: "분석만"
          description: "지금은 적용하지 않음"
    ```
 
-   **핵심 원칙**:
-   - 문제만 나열하지 말고, **왜** 그런 문제가 생겼는지 설명
-   - skillmaker의 어느 스킬이 이 문제를 다루는지 명시
-   - 구체적인 **구현 방법** 제시
-   - 실행할지 **사용자에게 제안**
+   **적극성 체크리스트**:
+   - [ ] 문제 발견 → 관련 스킬 즉시 로드했는가?
+   - [ ] 스킬의 references/ 문서를 읽었는가?
+   - [ ] 구체적인 구현 명령/코드를 추출했는가?
+   - [ ] 사용자가 바로 실행 가능한 형태로 제시했는가?
+   - [ ] "스킬 로드하세요"에서 그치지 않았는가?
 
-   **참조**: `Read("references/solution-synthesis.md")` for full problem-solution mapping
+   **금지 행동**:
+   - ❌ "mcp-gateway-patterns 스킬을 참고하세요" (수동적)
+   - ❌ "Daemon 패턴이 있습니다" (구체성 부족)
+   - ✅ "Daemon SSE 패턴 적용: `python -m serena --sse --port 8080`" (즉시 실행 가능)
 
 8. **Contextual Improvement Suggestions**
 
@@ -605,29 +628,41 @@ Do NOT follow a fixed checklist. Instead:
 
 ---
 
-### 해결책 종합
+### 해결책 종합 (적극적 추출)
 
-#### 🔴 문제 1: {finding}
+#### 🔴 문제 1: Gateway 패턴 작동 안 함
 
-**왜 이런 문제가 생겼는가?**
-{root cause analysis}
+**근본 원인** (mcp-gateway-patterns 스킬에서):
+> "Subagents cannot access MCP tools directly. tools: [] = no MCP access."
+> "Gateway agent pattern does NOT work - subagents run in isolated context."
 
-**관련 지식**: `Skill("skillmaker:{skill}")`
+**해결책** (daemon-shared-server.md에서 직접 추출):
+Daemon (SSE) 패턴 - MCP 서버를 독립 프로세스로 실행하고 SSE로 연결
 
-**해결책**: {solution from skill}
-
-**구현**:
+**구현 단계**:
 \`\`\`bash
-{concrete steps}
+# 1. MCP 서버를 데몬으로 시작
+python -m serena --sse --port 8080 &
+
+# 2. Claude Code에 등록
+claude mcp add serena-daemon --transport sse --url http://localhost:8080
+
+# 3. 등록 확인
+claude mcp list
 \`\`\`
+
+**검증**:
+- Subagent에서 `mcp__serena-daemon__*` 도구 접근 가능해짐
+- Main session과 동일한 MCP 상태 공유
 
 ---
 
 ### 실행 제안
 
-| # | 해결책 | 예상 영향 |
-|---|--------|----------|
-| 1 | {solution} | {impact} |
+| # | 해결책 | 구체적 명령 | 예상 영향 |
+|---|--------|-----------|----------|
+| 1 | Daemon SSE 패턴 | `python -m serena --sse` | Subagent MCP 접근 가능 |
+| 2 | 구 패턴 문서 제거 | Task: agent: 블록 삭제 | 문서-코드 정합성 |
 
 **진행하시겠습니까?** [모두 적용 / 선택 적용 / 분석만]
 ```
