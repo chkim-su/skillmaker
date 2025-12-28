@@ -50,6 +50,11 @@
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py\" --skip-git --pre-edit --quiet",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/pattern-compliance-guard.py\"",
+            "timeout": 3
           }
         ]
       },
@@ -60,6 +65,11 @@
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py\" --skip-git --pre-edit --quiet",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/pattern-compliance-guard.py\"",
+            "timeout": 3
           }
         ]
       },
@@ -80,6 +90,21 @@
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py\" --skip-git --quiet",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/pattern-compliance-guard.py\"",
+            "timeout": 3
+          }
+        ]
+      },
+      {
+        "matcher": "Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/pattern-compliance-guard.py\"",
+            "timeout": 5
           }
         ]
       }
@@ -135,6 +160,10 @@
       "--schema-only": "Only JSON schema validation (fastest)",
       "--pre-edit": "Validate current state before modification",
       "--quiet": "Minimal output, errors only"
+    },
+    "enforcement_hooks": {
+      "skill-access-guard.py": "Warns when skill files are read directly (use Skill() instead)",
+      "pattern-compliance-guard.py": "W033/W034 runtime alerts for agents launched via Task"
     }
   }
 }
