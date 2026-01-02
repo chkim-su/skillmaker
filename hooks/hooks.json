@@ -80,6 +80,11 @@
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py\" --skip-git",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/plugin-test-gate.py\" --quiet",
+            "timeout": 60
           }
         ]
       },

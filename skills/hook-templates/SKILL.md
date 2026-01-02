@@ -1,72 +1,101 @@
 ---
 name: hook-templates
-description: Production-tested Claude Code hook templates for common automation patterns. Use when implementing hooks.
-allowed-tools: ["Read", "Write", "Grep", "Glob"]
+description: Comprehensive Claude Code hook patterns for automation, state management, and external integration. Use when implementing hooks for validation, workflow gates, MCP integration, or state machines.
+allowed-tools: ["Read", "Write", "Bash", "Grep", "Glob"]
 ---
 
-# Hook Templates
+# Hook Patterns
 
-Production-tested templates for Claude Code hooks (1.0.40+ schema).
+Production-tested patterns for Claude Code hooks (1.0.40+).
 
-## Quick Start
+## Hook Roles (Beyond Just Validation)
 
-1. Create hook script (bash/python)
-2. Register in settings.json under `hooks.{EventName}`
-3. Script receives JSON on stdin, outputs to stdout
+| Role | Hook Event | Example |
+|------|------------|---------|
+| **Gate** | PreToolUse | Block dangerous commands, require prerequisites |
+| **Side Effect** | PostToolUse | Auto-format, auto-commit, lint |
+| **State Manager** | PostToolUse | Create/delete state files, track workflow phase |
+| **External Integrator** | Any | MCP calls, HTTP APIs, WebSocket |
+| **Context Injector** | SessionStart | Load project context, activate services |
 
-## Hook Types
+## Event Reference
 
-| Type | Trigger | Use Case |
-|------|---------|----------|
-| UserPromptSubmit | Every prompt | Skill activation |
-| PreToolUse | Before tool | Validation, blocking |
-| PostToolUse | After tool | Tracking, state |
-| Stop | Session end | Cleanup, reminders |
+| Event | Trigger | Can Block | Use For |
+|-------|---------|-----------|---------|
+| SessionStart | Session begins | No | Context loading, service activation |
+| UserPromptSubmit | User sends message | Yes | Prompt validation, skill suggestion |
+| PreToolUse | Before tool | **Yes** | Validation, workflow gates |
+| PostToolUse | After tool | No | State updates, side effects |
+| Stop | Claude stops | Yes | Quality gates, cleanup |
+| SubagentStop | Subagent stops | Yes | Subagent quality gates |
 
-## Basic Registration
+## Exit Codes
+
+| Code | PreToolUse/Stop | Others |
+|------|-----------------|--------|
+| 0 | Allow | Continue |
+| 2 | **Block** (stderr→Claude) | Logged |
+| 1, 3+ | **Block** | Logged |
+
+## JSON Response (Advanced)
+
+```json
+{
+  "decision": "approve|block",
+  "reason": "Shown to user/Claude",
+  "continue": true,
+  "suppressOutput": false
+}
+```
+
+## Quick Registration
 
 ```json
 {
   "hooks": {
     "PreToolUse": [{
       "matcher": "Edit|Write",
-      "hooks": [{
-        "type": "command",
-        "command": "script.sh",
-        "timeout": 5
-      }]
+      "hooks": [{ "type": "command", "command": "script.sh", "timeout": 5 }]
     }]
   }
 }
 ```
 
-## Exit Codes
+## Pattern Selection
 
-| Code | PreToolUse | Others |
-|------|------------|--------|
-| 0 | Continue | Continue |
-| 1+ | **Blocks** | Logged only |
+| Need | Pattern | Reference |
+|------|---------|-----------|
+| **Force skill/agent activation** | Orchestration | [orchestration-templates.md](references/orchestration-templates.md) |
+| Block dangerous actions | Gate Pattern | [gate-patterns.md](references/gate-patterns.md) |
+| Auto-format/lint/commit | Side Effect Pattern | [side-effect-patterns.md](references/side-effect-patterns.md) |
+| Full working examples | Examples | [full-examples.md](references/full-examples.md) |
 
-## Best Practices
+## Orchestration Patterns (NEW)
 
-1. **Read stdin** - Input is JSON
-2. **Use jq** - Reliable parsing
-3. **Exit 0** - Non-zero may block
-4. **Keep fast** - Slow hooks degrade UX
-5. **Use $CLAUDE_PROJECT_DIR** - Project path
+Hook-based skill/agent activation with reliability stats:
+
+| Pattern | Success | Use Case |
+|---------|---------|----------|
+| Forced Evaluation | **84%** | Force Claude to evaluate and use skills |
+| Agent Router | **100%** | Route to plugin agents via Task tool |
+| Context Injection | 100% | Load project context at session start |
+
+See [orchestration-templates.md](references/orchestration-templates.md) for templates.
+
+## Debugging
+
+Common issues and solutions in [debugging-guide.md](references/debugging-guide.md).
+
+Quick checklist:
+- Hook executable? (`chmod +x`)
+- Using `INPUT=$(cat)` to read stdin?
+- Using `exit 2` for blocking (not exit 1)?
+- Debug to stderr (`>&2`), output to stdout?
+- New session after settings.json change?
 
 ## Common Mistakes
 
 - Missing nested `hooks` array
 - Missing `"type": "command"`
-- Using non-existent `pattern` or `behavior` fields
-
-## Advanced Patterns
-
-- **Subagent filtering**: Parse `tool_input.subagent_type` for Task hooks
-- **Workflow gates**: Combine with `workflow-state-patterns` for state files
-- **Skill auto-activation**: Use `skill-activation-patterns` with UserPromptSubmit
-
-## References
-
-- [Full Examples](references/full-examples.md) - All templates with detailed code
+- Using exit 1 instead of exit 2 for blocking
+- Object matcher (not supported) - use script parsing instead

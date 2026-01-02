@@ -1,7 +1,7 @@
 {
   "name": "skillmaker-marketplace",
   "description": "Skillmaker: Create perfect skills and subagents that use them with isolated context",
-  "version": "2.16.0",
+  "version": "2.17.0",
   "owner": {
     "name": "Chanho KIM"
   },
@@ -11,7 +11,7 @@
       "name": "skillmaker",
       "description": "Create perfect skills and subagents that use them explicitly. Solve the context window problem with skill-based architecture.",
       "source": "./",
-      "version": "2.16.0",
+      "version": "2.17.0",
       "author": {
         "name": "Chanho KIM"
       },
@@ -26,10 +26,17 @@
         "./skills/workflow-state-patterns",
         "./skills/critical-analysis-patterns",
         "./skills/mcp-daemon-isolation",
-        "./skills/wizard"
+        "./skills/wizard",
+        "./skills/hook-system",
+        "./skills/hook-capabilities",
+        "./skills/hook-sdk-integration",
+        "./skills/plugin-test-framework"
       ],
       "commands": [
-        "./commands/wizard.md"
+        "./commands/wizard.md",
+        "./commands/run-tests.md",
+        "./commands/test-env.md",
+        "./commands/validate-plugin.md"
       ],
       "agents": [
         "./agents/skill-architect.md",
