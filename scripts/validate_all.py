@@ -607,8 +607,25 @@ def validate_frontmatter_fields(plugin_root: Path) -> ValidationResult:
                 needs_fix = True
                 result.add_error(f"{agent_file.name}: Missing 'description' field")
             if "tools" not in fm:
-                hint = get_skill_hint("W030", "agent tools")
-                result.add_warning(f"W030: {agent_file.name}: Missing 'tools' field{hint}")
+                # W030: Decision-first approach for missing tools field
+                w030_msg = [
+                    f"W030: {agent_file.name}: Missing 'tools' field.",
+                    "",
+                    "🔍 DECISION REQUIRED - 이것이 의도적인지 판단하세요:",
+                    "",
+                    "  📋 판단 후 조치:",
+                    "  ├─ YES (의도적, 모든 도구 사용) → 명시적으로 선언",
+                    "  │   tools: [\"*\"]  # 또는 tools 생략 (all tools)",
+                    "  │   주석: # Intentionally omitted for full access",
+                    "  │",
+                    "  └─ NO (실수, 제한 필요) → 필요한 도구만 명시",
+                    "      tools: [\"Read\", \"Grep\", \"Glob\"]",
+                    "      tools: []  # MCP 도구 없음",
+                    "",
+                    "⛔ tools 필드 누락을 무시하지 마세요 - 보안에 영향을 줄 수 있습니다.",
+                    get_skill_hint("W030", "agent tools")
+                ]
+                result.add_warning("\n".join(w030_msg))
 
             if needs_fix:
                 result.fixes.append(Fix(f"Fix frontmatter in {agent_file.name}", fix_add_frontmatter, agent_file, fm))
@@ -717,23 +734,83 @@ def validate_scripts(plugin_root: Path) -> ValidationResult:
     return result
 
 
+def _analyze_keyword_context(content: str, keyword: str, pattern: str) -> List[Dict[str, Any]]:
+    """
+    Analyze the context around each keyword match to detect false positives.
+
+    Returns list of matches with context analysis:
+    - match: the matched text
+    - context: surrounding text (±30 chars)
+    - likely_false_positive: bool
+    - reason: why it might be false positive
+    """
+    import re
+    results = []
+
+    # Find all matches with their positions
+    for m in re.finditer(pattern, content, re.IGNORECASE):
+        start = max(0, m.start() - 30)
+        end = min(len(content), m.end() + 30)
+        context = content[start:end].replace('\n', ' ')
+
+        likely_fp = False
+        reason = ""
+
+        # Check for template variable pattern: {keyword_something}
+        template_check = content[max(0, m.start()-1):m.end()+20]
+        if re.search(r'\{[^}]*' + keyword + r'[^}]*\}', template_check, re.IGNORECASE):
+            likely_fp = True
+            reason = "템플릿 변수 (e.g., {critical_analysis})"
+
+        # Check for table header pattern: | Keyword |
+        table_check = content[max(0, m.start()-3):m.end()+3]
+        if re.search(r'\|\s*' + keyword + r'\s*\|', table_check, re.IGNORECASE):
+            likely_fp = True
+            reason = "테이블 헤더"
+
+        # Check if inside code block (``` ... ```)
+        before_content = content[:m.start()]
+        code_opens = before_content.count('```')
+        if code_opens % 2 == 1:  # Odd number means we're inside a code block
+            likely_fp = True
+            reason = "코드 블록 내"
+
+        # Check for inline code (`keyword`)
+        inline_check = content[max(0, m.start()-1):m.end()+1]
+        if re.search(r'`[^`]*' + keyword, inline_check, re.IGNORECASE):
+            likely_fp = True
+            reason = "인라인 코드"
+
+        results.append({
+            "match": m.group(),
+            "context": context,
+            "likely_false_positive": likely_fp,
+            "reason": reason
+        })
+
+    return results
+
+
 def validate_hookify_compliance(plugin_root: Path) -> ValidationResult:
     """
     W028: Check if MUST/CRITICAL/REQUIRED keywords exist without corresponding hooks.
     W035: Check for 'NOT YET HOOKIFIED' markers indicating known unhookified items.
 
     Per skillmaker's own principle: "문서 기반 강제는 무의미합니다"
+
+    Enhanced with context-aware analysis to reduce false positives and guide
+    proper decision-making (not bypass attempts).
     """
     result = ValidationResult()
 
     # Enforcement keywords that should be hookified
     enforcement_keywords = [
-        r'\bMUST\b',
-        r'\bCRITICAL\b',
-        r'\bREQUIRED\b',
-        r'\bMANDATORY\b',
-        r'\b강제\b',
-        r'\b반드시\b'
+        (r'\bMUST\b', 'MUST'),
+        (r'\bCRITICAL\b', 'CRITICAL'),
+        (r'\bREQUIRED\b', 'REQUIRED'),
+        (r'\bMANDATORY\b', 'MANDATORY'),
+        (r'\b강제\b', '강제'),
+        (r'\b반드시\b', '반드시')
     ]
 
     # Unhookified markers
@@ -773,8 +850,8 @@ def validate_hookify_compliance(plugin_root: Path) -> ValidationResult:
         for cmd_file in commands_dir.glob("*.md"):
             files_to_check.append(cmd_file)
 
-    # Track findings
-    files_with_enforcement = []
+    # Track findings with context analysis
+    files_with_enforcement = []  # [(rel_path, [analysis_results])]
     unhookified_found = []
 
     for file_path in files_to_check:
@@ -784,12 +861,16 @@ def validate_hookify_compliance(plugin_root: Path) -> ValidationResult:
             continue
 
         rel_path = file_path.relative_to(plugin_root)
+        file_matches = []
 
-        # Check for enforcement keywords
-        for pattern in enforcement_keywords:
+        # Check for enforcement keywords with context analysis
+        for pattern, keyword in enforcement_keywords:
             if re.search(pattern, content):
-                files_with_enforcement.append(str(rel_path))
-                break
+                analysis = _analyze_keyword_context(content, keyword, pattern)
+                file_matches.extend(analysis)
+
+        if file_matches:
+            files_with_enforcement.append((str(rel_path), file_matches))
 
         # Check for unhookified markers (W035)
         for marker in unhookified_markers:
@@ -799,14 +880,52 @@ def validate_hookify_compliance(plugin_root: Path) -> ValidationResult:
                 unhookified_found.append((str(rel_path), count))
                 break
 
-    # W028: Enforcement keywords without hooks
+    # W028: Enforcement keywords without hooks - with decision guidance
     if files_with_enforcement and not has_hooks:
-        hint = get_skill_hint("W028")
-        result.add_warning(
-            f"W028: {len(files_with_enforcement)} file(s) contain enforcement keywords "
-            f"(MUST/CRITICAL/REQUIRED) but no hooks/hooks.json exists. "
-            f"Document-based enforcement is ineffective.{hint}"
-        )
+        # Categorize matches
+        likely_rules = []
+        likely_fps = []
+
+        for rel_path, matches in files_with_enforcement:
+            for m in matches:
+                if m["likely_false_positive"]:
+                    likely_fps.append((rel_path, m))
+                else:
+                    likely_rules.append((rel_path, m))
+
+        # Build decision-focused message
+        msg_parts = [
+            f"W028: {len(files_with_enforcement)} file(s) contain enforcement keywords.",
+            "",
+            "🔍 DECISION REQUIRED - 우회하지 말고 먼저 판단하세요:",
+            ""
+        ]
+
+        # Show analysis per file
+        for rel_path, matches in files_with_enforcement[:3]:  # Limit to 3 files
+            msg_parts.append(f"  📄 {rel_path}:")
+            for m in matches[:2]:  # Limit to 2 matches per file
+                if m["likely_false_positive"]:
+                    msg_parts.append(f"     \"{m['match']}\" → ⚠️ {m['reason']} (false positive 가능)")
+                else:
+                    msg_parts.append(f"     \"{m['match']}\" → 🔴 규칙으로 보임 (hook 필요 가능)")
+
+        msg_parts.extend([
+            "",
+            "📋 판단 후 조치:",
+            "  ├─ YES (진짜 규칙) → hook으로 강제 필요",
+            "  │   경로: /skillmaker:hook-templates 또는 /hookify",
+            "  │   참조: Skill(\"skillmaker:hook-sdk-integration\")",
+            "  │",
+            "  └─ NO (false positive) → 정당한 용어 변경",
+            "      - 테이블 헤더: Required → 필수",
+            "      - 템플릿 변수: {critical_X} → {critique_X}",
+            "      - 또는 hooks/hooks.json 빈 파일 생성 (규칙 없음을 명시)",
+            "",
+            "⛔ 키워드만 바꿔서 경고를 우회하는 것은 금지됩니다."
+        ])
+
+        result.add_warning("\n".join(msg_parts))
     elif files_with_enforcement and has_hooks:
         # hooks.json exists, that's good
         result.add_pass(f"W028: Enforcement keywords found in {len(files_with_enforcement)} files, hooks.json exists")
