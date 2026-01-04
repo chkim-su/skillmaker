@@ -416,16 +416,16 @@ class PluginTestRunner:
         status = "✅ PASS" if result.passed else "❌ FAIL"
         print(f"{status}: {result.name}")
 
-        # Check allowed-tools
+        # Check tools (accept either 'tools:' or 'allowed-tools:')
         valid = all(
-            "allowed-tools:" in a.read_text()[:500]
+            ("tools:" in a.read_text()[:500] or "allowed-tools:" in a.read_text()[:500])
             for a in agents
         )
         result = TestResult(
             name="Agents have tool lists",
             category="agent",
             passed=valid,
-            message="OK" if valid else "Missing allowed-tools"
+            message="OK" if valid else "Missing tools/allowed-tools"
         )
         self.report.results.append(result)
         status = "✅ PASS" if result.passed else "❌ FAIL"

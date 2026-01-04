@@ -419,7 +419,8 @@ if [ -d "$TEST_DIR/agents" ] && ls "$TEST_DIR/agents"/*.md > /dev/null 2>&1; the
 
     VALID=true
     for agent in "$TEST_DIR/agents"/*.md; do
-        grep -q "^allowed-tools:" "$agent" || VALID=false
+        # Accept either 'tools:' or 'allowed-tools:' (both are valid for agents)
+        grep -qE "^(tools|allowed-tools):" "$agent" || VALID=false
     done
     [[ "$VALID" == "true" ]] && test_result "Agents have tool lists" "pass" || test_result "Agents have tool lists" "fail"
 fi
@@ -548,6 +549,100 @@ SCRIPT
 
 add_advanced_testing "$OUTPUT_DIR"
 
+#######################################
+# Add E2E Test Support
+#######################################
+add_e2e_testing() {
+    local DIR="$1"
+    local SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+    # Copy E2E test runner if available
+    if [ -f "$SCRIPT_DIR/e2e-test-runner.py" ]; then
+        cp "$SCRIPT_DIR/e2e-test-runner.py" "$DIR/"
+        chmod +x "$DIR/e2e-test-runner.py"
+    fi
+
+    # Copy E2E test YAML if available
+    if [ -f "$SCRIPT_DIR/e2e-tests.yaml" ]; then
+        cp "$SCRIPT_DIR/e2e-tests.yaml" "$DIR/tests/"
+    else
+        # Generate sample E2E tests
+        cat > "$DIR/tests/e2e-tests.yaml" << 'YAML'
+version: "1.0"
+description: "E2E Tests using Claude CLI"
+
+settings:
+  model: haiku
+  max_budget_usd: 0.50
+  timeout: 60
+
+e2e_tests:
+  - name: "CLI responds to simple prompt"
+    prompt: "Say 'hello' and nothing else"
+    expect:
+      - contains: "hello"
+      - exit_success: true
+    timeout: 30
+
+  - name: "Bash tool execution"
+    prompt: "Run: echo 'E2E_TEST_MARKER'"
+    allowed_tools: ["Bash"]
+    expect:
+      - tool_used: "Bash"
+      - contains: "E2E_TEST_MARKER"
+YAML
+    fi
+
+    # Create E2E wrapper script
+    cat > "$DIR/run-e2e-tests.sh" << 'SCRIPT'
+#!/bin/bash
+# E2E Test Runner - Uses actual Claude CLI (API costs apply!)
+
+TEST_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+echo "================================"
+echo "  Claude Code E2E Tests"
+echo "================================"
+echo "⚠️  This runs real API calls. Costs apply!"
+echo ""
+
+# Check for Python
+if ! command -v python3 &> /dev/null; then
+    echo "Error: Python3 required"
+    exit 1
+fi
+
+# Check for Claude CLI
+if ! command -v claude &> /dev/null; then
+    echo "Error: claude CLI not found"
+    exit 1
+fi
+
+# Default options
+MODEL="${1:-haiku}"
+BUDGET="${2:-0.50}"
+
+echo "Model: $MODEL"
+echo "Max Budget: \$$BUDGET"
+echo ""
+
+read -p "Run E2E tests? (y/N) " confirm
+if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
+    echo "Aborted."
+    exit 0
+fi
+
+python3 "$TEST_DIR/e2e-test-runner.py" \
+    "$TEST_DIR/tests/e2e-tests.yaml" \
+    --plugin-dir "$TEST_DIR" \
+    --model "$MODEL" \
+    --max-budget "$BUDGET"
+SCRIPT
+    chmod +x "$DIR/run-e2e-tests.sh"
+}
+
+add_e2e_testing "$OUTPUT_DIR"
+
 echo ""
 echo "================================"
 echo "Test environment created!"
@@ -556,8 +651,11 @@ echo ""
 echo "To run tests:"
 echo "  Basic:    cd $OUTPUT_DIR && ./run-tests.sh"
 echo "  Advanced: cd $OUTPUT_DIR && ./run-advanced-tests.sh"
+echo "  E2E:      cd $OUTPUT_DIR && ./run-e2e-tests.sh [model] [budget]"
 echo ""
 echo "Test files:"
 echo "  - tests/hook-tests.yaml (YAML definitions)"
-echo "  - test-runner.py (Python runner)"
+echo "  - tests/e2e-tests.yaml (E2E test definitions)"
+echo "  - test-runner.py (Hook test runner)"
+echo "  - e2e-test-runner.py (E2E test runner)"
 echo "================================"

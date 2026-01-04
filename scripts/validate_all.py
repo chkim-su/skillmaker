@@ -369,6 +369,29 @@ def fix_path_format(marketplace_path: Path, item_type: str, old_path: str, new_p
 # VALIDATION FUNCTIONS
 # ============================================================================
 
+
+def extract_path(item: str | dict, path_key: str = "path") -> str:
+    """Extract path from string or dictionary format.
+
+    Plugins can define commands/agents/skills in two formats:
+    1. String format: "./agents/agent-name.md"
+    2. Dictionary format: {"name": "agent-name", "path": "agents/agent-name.md", ...}
+
+    Returns the path string, or empty string if not extractable.
+    """
+    if isinstance(item, str):
+        return item
+    elif isinstance(item, dict):
+        # Try common path keys
+        for key in [path_key, "path", "file", "src"]:
+            if key in item:
+                return item[key]
+        # Fallback: if has "name" but no path, construct default path
+        if "name" in item:
+            return item["name"]
+    return ""
+
+
 def validate_registration(plugin_root: Path, plugin_data: dict, marketplace_path: Path) -> ValidationResult:
     """Validate marketplace.json entries match actual files."""
     result = ValidationResult()
@@ -383,7 +406,13 @@ def validate_registration(plugin_root: Path, plugin_data: dict, marketplace_path
         actual_commands = {f.stem for f in commands_dir.glob("*.md")}
         registered_set = set()
 
-        for cmd in registered_commands:
+        for cmd_entry in registered_commands:
+            # Extract path from string or dictionary format
+            cmd = extract_path(cmd_entry)
+            if not cmd:
+                result.add_warning(f"Command entry has no extractable path: {cmd_entry}")
+                continue
+
             # CRITICAL: Validate path format - commands MUST end with .md
             if not cmd.endswith(".md"):
                 correct_path = cmd + ".md"
@@ -422,7 +451,13 @@ def validate_registration(plugin_root: Path, plugin_data: dict, marketplace_path
         actual_agents = {f.stem for f in agents_dir.glob("*.md")}
         registered_set = set()
 
-        for agent in registered_agents:
+        for agent_entry in registered_agents:
+            # Extract path from string or dictionary format
+            agent = extract_path(agent_entry)
+            if not agent:
+                result.add_warning(f"Agent entry has no extractable path: {agent_entry}")
+                continue
+
             # CRITICAL: Validate path format - agents MUST end with .md
             if not agent.endswith(".md"):
                 correct_path = agent + ".md"
@@ -460,7 +495,13 @@ def validate_registration(plugin_root: Path, plugin_data: dict, marketplace_path
         actual_skills = {d.name for d in skills_dir.iterdir() if d.is_dir()}
         registered_set = set()
 
-        for skill in registered_skills:
+        for skill_entry in registered_skills:
+            # Extract path from string or dictionary format
+            skill = extract_path(skill_entry)
+            if not skill:
+                result.add_warning(f"Skill entry has no extractable path: {skill_entry}")
+                continue
+
             # CRITICAL: Validate path format - skills are directories, must NOT end with .md
             if skill.endswith(".md"):
                 correct_path = skill.replace(".md", "").rstrip("/")

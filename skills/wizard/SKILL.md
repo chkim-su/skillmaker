@@ -50,6 +50,8 @@ AskUserQuestion:
 | `validate\|check\|검증` | VALIDATE | `Read("references/route-validate.md")` |
 | `publish\|deploy\|배포` | PUBLISH | `Read("references/route-publish.md")` |
 | `register\|local\|등록` | LOCAL_REGISTER | `Read("references/route-publish.md")` |
+| `llm\|sdk\|직접.*호출\|background.*agent` | LLM_INTEGRATION | `Read("references/route-llm-integration.md")` + `Skill("skillmaker:llm-sdk-guide")` |
+| `hook.*design\|훅.*설계\|적절한.*hook` | HOOK_DESIGN | `Read("references/route-hook-design.md")` |
 | no match | MENU | Show menu below |
 
 ---
@@ -69,6 +71,10 @@ AskUserQuestion:
       description: "Create subagent with skills"
     - label: "Command"
       description: "Create workflow command"
+    - label: "Hook Design"
+      description: "Design hook with proper skill selection"
+    - label: "LLM Integration"
+      description: "Direct LLM calls from hooks/agents"
     - label: "Analyze"
       description: "Validation + design principles"
     - label: "Validate"
@@ -115,3 +121,5 @@ Each route has detailed instructions:
 | ANALYZE | [route-analyze.md](references/route-analyze.md) |
 | VALIDATE | [route-validate.md](references/route-validate.md) |
 | PUBLISH, LOCAL_REGISTER | [route-publish.md](references/route-publish.md) |
+| LLM_INTEGRATION | [route-llm-integration.md](references/route-llm-integration.md) |
+| HOOK_DESIGN | [route-hook-design.md](references/route-hook-design.md) |

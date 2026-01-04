@@ -30,20 +30,25 @@
         "./skills/hook-system",
         "./skills/hook-capabilities",
         "./skills/hook-sdk-integration",
-        "./skills/plugin-test-framework"
+        "./skills/plugin-test-framework",
+        "./skills/llm-sdk-guide"
       ],
       "commands": [
         "./commands/wizard.md",
         "./commands/run-tests.md",
         "./commands/test-env.md",
-        "./commands/validate-plugin.md"
+        "./commands/validate-plugin.md",
+        "./commands/suggest.md",
+        "./commands/load.md",
+        "./commands/skills.md"
       ],
       "agents": [
         "./agents/skill-architect.md",
         "./agents/skill-converter.md",
         "./agents/skill-orchestrator-designer.md",
         "./agents/skill-rules-designer.md",
-        "./agents/mcp-gateway-designer.md"
+        "./agents/mcp-gateway-designer.md",
+        "./agents/plugin-tester.md"
       ]
     }
   ]

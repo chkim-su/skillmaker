@@ -8,6 +8,16 @@ allowed-tools: ["Read", "Grep", "Glob"]
 
 Hook에서 u-llm-sdk/claude-only-sdk를 사용하여 LLM 호출하는 패턴.
 
+## IMPORTANT: SDK 상세 가이드
+
+**SDK 구현 시 반드시 로드**:
+```
+Skill("skillmaker:llm-sdk-guide")
+```
+
+이 스킬은 SDK 호출 패턴의 **인터페이스**를 다루고,
+`llm-sdk-guide`는 SDK의 **상세 API와 타입**을 다룹니다.
+
 ## Quick Start
 
 ```bash
@@ -71,6 +81,7 @@ async with LLM(config) as llm:
 
 ## References
 
+- **[LLM SDK 상세 가이드](../llm-sdk-guide/SKILL.md)** ← SDK API 상세
 - [SDK 통합 패턴](references/sdk-patterns.md)
 - [Background Agent 구현](references/background-agent.md)
 - [비용 최적화](references/cost-optimization.md)
