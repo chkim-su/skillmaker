@@ -54,6 +54,33 @@
         "keywords": ["workflow", "state", "gate", "phase", "워크플로우"],
         "intentPatterns": ["multi.*phase", "state.*machine"]
       }
+    },
+    "critical-analysis-patterns": {
+      "type": "domain",
+      "enforcement": "suggest",
+      "priority": "high",
+      "promptTriggers": {
+        "keywords": ["analyze", "review", "audit", "diagnose", "분석"],
+        "intentPatterns": ["(analyze|review|audit).*code", "design.*review", "architectural.*smell"]
+      }
+    },
+    "plugin-test-framework": {
+      "type": "domain",
+      "enforcement": "suggest",
+      "priority": "medium",
+      "promptTriggers": {
+        "keywords": ["test", "testing", "validate plugin", "테스트"],
+        "intentPatterns": ["test.*plugin", "run.*tests", "validate.*structure"]
+      }
+    },
+    "hook-capabilities": {
+      "type": "domain",
+      "enforcement": "suggest",
+      "priority": "low",
+      "promptTriggers": {
+        "keywords": ["hook capabilities", "advanced hook", "hook debugging"],
+        "intentPatterns": ["what.*hook.*can", "hook.*limitation", "debug.*hook"]
+      }
     }
   },
   "complexity_levels": {

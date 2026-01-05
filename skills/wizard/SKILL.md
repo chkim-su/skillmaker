@@ -52,6 +52,8 @@ AskUserQuestion:
 | `register\|local` | LOCAL_REGISTER | `Read("references/route-publish.md")` |
 | `llm\|sdk\|background.*agent` | LLM_INTEGRATION | `Read("references/route-llm-integration.md")` + `Skill("skillmaker:llm-sdk-guide")` |
 | `hook.*design\|proper.*hook` | HOOK_DESIGN | `Read("references/route-hook-design.md")` |
+| `skill-rules\|auto-activation\|trigger` | SKILL_RULES | `Read("references/route-skill-rules.md")` |
+| `mcp\|gateway\|isolation\|serena\|playwright` | MCP | `Read("references/route-mcp.md")` |
 | no match | MENU | Show menu below |
 
 ---
@@ -75,6 +77,10 @@ AskUserQuestion:
       description: "Design hook with proper skill selection"
     - label: "LLM Integration"
       description: "Direct LLM calls from hooks/agents"
+    - label: "Skill Rules"
+      description: "Configure auto-activation triggers"
+    - label: "MCP Gateway"
+      description: "Design MCP tool isolation for subagents"
     - label: "Analyze"
       description: "Validation + design principles"
     - label: "Validate"
@@ -123,3 +129,5 @@ Each route has detailed instructions:
 | PUBLISH, LOCAL_REGISTER | [route-publish.md](references/route-publish.md) |
 | LLM_INTEGRATION | [route-llm-integration.md](references/route-llm-integration.md) |
 | HOOK_DESIGN | [route-hook-design.md](references/route-hook-design.md) |
+| SKILL_RULES | [route-skill-rules.md](references/route-skill-rules.md) |
+| MCP | [route-mcp.md](references/route-mcp.md) |

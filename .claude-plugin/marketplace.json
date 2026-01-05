@@ -1,7 +1,7 @@
 {
   "name": "skillmaker-marketplace",
   "description": "Skillmaker: Create perfect skills and subagents that use them with isolated context",
-  "version": "2.21.1",
+  "version": "2.23.0",
   "owner": {
     "name": "Chanho KIM"
   },
@@ -11,7 +11,7 @@
       "name": "skillmaker",
       "description": "Create perfect skills and subagents that use them explicitly. Solve the context window problem with skill-based architecture.",
       "source": "./",
-      "version": "2.21.1",
+      "version": "2.23.0",
       "author": {
         "name": "Chanho KIM"
       },
@@ -41,7 +41,8 @@
         "./commands/validate-plugin.md",
         "./commands/suggest.md",
         "./commands/load.md",
-        "./commands/skills.md"
+        "./commands/skills.md",
+        "./commands/diagnose.md"
       ],
       "agents": [
         "./agents/skill-architect.md",
@@ -49,7 +50,13 @@
         "./agents/skill-orchestrator-designer.md",
         "./agents/skill-rules-designer.md",
         "./agents/mcp-gateway-designer.md",
-        "./agents/plugin-tester.md"
+        "./agents/plugin-tester.md",
+        "./agents/diagnostic-orchestrator.md",
+        "./agents/content-quality-analyzer.md",
+        "./agents/hook-reasoning-engine.md",
+        "./agents/intent-analyzer.md",
+        "./agents/architectural-smell-detector.md",
+        "./agents/extraction-recommender.md"
       ]
     }
   ]

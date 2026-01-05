@@ -1,10 +1,52 @@
 # ANALYZE Route
 
-Context-aware project analysis combining validation with design principles.
+Two-layer analysis: static validation + semantic understanding via diagnostic agents.
+
+## Architecture
+
+```
+Layer 1: Static Validation (fast, deterministic)
+└─ validate_all.py → W0XX codes
+
+Layer 2: Semantic Analysis (deep understanding)
+└─ diagnostic-orchestrator → coordinates agents
+   ├─ content-quality-analyzer → language/emoji/comments
+   ├─ hook-reasoning-engine → WHERE and HOW for hooks
+   ├─ intent-analyzer → 6 core questions
+   ├─ architectural-smell-detector → pattern violations
+   └─ extraction-recommender → script/agent/skill extraction
+```
 
 ## Approach: Adaptive Analysis
 
-Do NOT follow a fixed checklist. Adapt to project type.
+Do NOT follow a fixed checklist. Adapt to project type and static findings.
+
+### Intent Detection
+
+When user request is unclear, use semantic understanding:
+
+| User Says | Intent | Action |
+|-----------|--------|--------|
+| "전반적으로 검토해줘" | Overall verification | BOTH validation + analysis |
+| "validate" / "check" | Quick validation | Layer 1 only |
+| "analyze" / "review" | Deep analysis | Layer 1 + Layer 2 |
+| "뭔가 이상해" | Debug/investigate | Layer 2 focus |
+
+**If unclear**: Use `AskUserQuestion` to clarify:
+```yaml
+AskUserQuestion:
+  question: "What type of verification do you need?"
+  header: "Scope"
+  options:
+    - label: "Quick Validation"
+      description: "Schema, paths, structure only (~1s)"
+    - label: "Full Analysis (Recommended)"
+      description: "Validation + semantic analysis (~30s)"
+    - label: "Deep Diagnostics"
+      description: "All agents + detailed recommendations"
+```
+
+---
 
 ## Step 1: Understand Context
 
@@ -12,51 +54,65 @@ Do NOT follow a fixed checklist. Adapt to project type.
 - Primary purpose?
 - Complexity level: simple/standard/advanced?
 
-## Step 2: Run Base Validation
+## Step 2: Run Static Validation (Layer 1)
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --json
 ```
 
-## Step 3: Run Functional Tests
+Parse results for W0XX codes to determine which semantic agents to dispatch.
 
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/functional-test.py      # Auto-detect
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/functional-test.py --all  # Test all
+## Step 3: Dispatch Semantic Agents (Layer 2)
+
+Based on static findings, launch agents via Task tool:
+
+| Static Finding | Agent to Dispatch |
+|---------------|-------------------|
+| W028 (enforcement keywords) | `hook-reasoning-engine` |
+| W030 (missing tools) | `intent-analyzer` |
+| W031/W032 (content issues) | `content-quality-analyzer` |
+| Multiple similar errors | `architectural-smell-detector` |
+| Complex structure | `extraction-recommender` |
+| Any .md files | `content-quality-analyzer` (language check) |
+
+For comprehensive analysis, dispatch `diagnostic-orchestrator`:
+
+```yaml
+Task:
+  subagent_type: diagnostic-orchestrator
+  prompt: "Run comprehensive analysis with all semantic agents"
 ```
-
-**CRITICAL**: Fix failures before proceeding.
 
 ## Step 4: Analyze Based on Project Type
 
-| Project Type | Focus Areas |
-|--------------|-------------|
-| **Skill library** | Skill design, SKILL.md quality, references separation |
-| **Agent suite** | Orchestration patterns, context isolation, Skill() usage |
-| **Full plugin** | All above + hookify, deployment readiness |
-| **MCP integration** | Gateway patterns, isolation strategy |
+| Project Type | Focus Areas | Primary Agents |
+|--------------|-------------|----------------|
+| **Skill library** | Skill design, SKILL.md quality | content-quality-analyzer, intent-analyzer |
+| **Agent suite** | Orchestration, context isolation | architectural-smell-detector, intent-analyzer |
+| **Full plugin** | All + hookify, deployment | All agents via orchestrator |
+| **MCP integration** | Gateway patterns, isolation | architectural-smell-detector |
 
-## Step 5: Load Relevant Principles
+## Step 5: Load Relevant Skills
 
 - skills/ directory → `Skill("skillmaker:skill-design")`
 - agents/ directory → `Skill("skillmaker:orchestration-patterns")`
 - hooks/ directory → Hookify compliance check
 - MCP usage → `Skill("skillmaker:mcp-gateway-patterns")`
 
-## Step 6: Critical Analysis
+## Step 6: Critical Analysis (via intent-analyzer)
 
-Load: `Skill("skillmaker:critical-analysis-patterns")`
+The `intent-analyzer` agent applies 6 core questions automatically.
 
-### 6a: Apply 6 Core Questions
+### 6a: 6 Core Questions
 
 | Question | What to Ask |
 |----------|-------------|
-| 존재 정당성 | "이것이 왜 여기 있는가?" |
-| 의도-구현 정합성 | "이름과 역할이 일치하는가?" |
-| 일관성 | "비슷한 것들이 다르게 처리되는가?" |
-| 미사용 기능 | "선언했지만 안 쓰는가?" |
-| 복잡성 정당화 | "이 복잡성이 필요한가?" |
-| Fundamental Redesign | "시스템 자체가 잘못된 것은 아닌가?" |
+| Existence Justification | "Why does this exist?" |
+| Intent-Implementation Alignment | "Does name match role?" |
+| Consistency | "Are similar things handled differently?" |
+| Unused Capabilities | "Is anything declared but not used?" |
+| Complexity Justification | "Is this complexity necessary?" |
+| Fundamental Redesign | "Is the system itself wrong?" |
 
 ### 6b: Canonical Pattern Comparison
 
@@ -115,31 +171,53 @@ AskUserQuestion:
 ## Output Format
 
 ```markdown
-## 프로젝트 분석: {project-name}
+## Project Analysis: {project-name}
 
-### 프로젝트 이해
-- 타입: {type}
-- 복잡도: {level}
-- 주요 목적: {purpose}
+### Context
+- Type: {plugin|skill-library|agent-suite}
+- Complexity: {simple|standard|advanced}
+- Purpose: {description}
 
-### 검증 결과
-{validation output}
+### Layer 1: Static Validation
+**Status:** {pass|warn|fail}
+- Errors: {count}
+- Warnings: {count}
+- W0XX codes: {list}
 
-### 철학적 분석
-| # | 발견 | 질문 | 심각도 |
-|---|------|------|--------|
+### Layer 2: Semantic Analysis
 
-### 해결책 종합
-[Concrete solutions with implementation steps]
+#### Content Quality
+{From content-quality-analyzer}
 
-### 실행 제안
-[Actionable items with commands]
+#### Hook Analysis
+{From hook-reasoning-engine}
+
+#### Intent Alignment
+{From intent-analyzer}
+
+#### Architectural Smells
+{From architectural-smell-detector}
+
+#### Extraction Candidates
+{From extraction-recommender}
+
+### Prioritized Actions
+
+| Priority | Issue | Source | Action |
+|----------|-------|--------|--------|
+| BLOCKING | {issue} | {agent} | {fix} |
+| ADVISORY | {issue} | {agent} | {fix} |
+
+### Summary
+{Executive summary with next steps}
 ```
 
 ## Key Difference from VALIDATE
 
 | VALIDATE | ANALYZE |
 |----------|---------|
-| Fixed script | Adaptive |
-| Schema only | Design principles |
-| Pass/fail | Nuanced insights |
+| Static script only | Static + semantic agents |
+| Schema checks | Design principles + intent |
+| Pass/fail binary | Confidence scores with evidence |
+| Pattern matching | Contextual understanding |
+| Fixed questions | Adaptive to project type |
