@@ -957,6 +957,153 @@ def validate_hookify_compliance(plugin_root: Path) -> ValidationResult:
     return result
 
 
+def validate_unnecessary_files(plugin_root: Path) -> ValidationResult:
+    """
+    W036: Detect unnecessary files that should be cleaned up or gitignored.
+
+    Categories:
+    - DELETE: Files that should be removed (logs, caches)
+    - GITIGNORE: Files that should be in .gitignore
+    - SENSITIVE: Files that may contain secrets (.env)
+    """
+    result = ValidationResult()
+
+    # Patterns to detect with recommendations
+    # Format: (pattern, category, description, recommendation)
+    patterns = [
+        # Log files - DELETE
+        ("firebase-debug.log", "DELETE", "Firebase debug log", "rm firebase-debug.log"),
+        ("npm-debug.log", "DELETE", "NPM debug log", "rm npm-debug.log"),
+        ("yarn-error.log", "DELETE", "Yarn error log", "rm yarn-error.log"),
+        ("debug.log", "DELETE", "Debug log", "rm debug.log"),
+        ("*.log", "DELETE", "Log files", "rm *.log"),
+
+        # Cache directories - DELETE
+        ("__pycache__", "DELETE", "Python cache", "rm -rf __pycache__"),
+        (".pytest_cache", "DELETE", "Pytest cache", "rm -rf .pytest_cache"),
+        (".mypy_cache", "DELETE", "Mypy cache", "rm -rf .mypy_cache"),
+        ("node_modules", "DELETE", "Node modules (large)", "rm -rf node_modules"),
+        (".cache", "DELETE", "Cache directory", "rm -rf .cache"),
+
+        # System files - GITIGNORE
+        (".DS_Store", "GITIGNORE", "macOS metadata", 'echo ".DS_Store" >> .gitignore'),
+        ("Thumbs.db", "GITIGNORE", "Windows thumbnail", 'echo "Thumbs.db" >> .gitignore'),
+
+        # IDE files - GITIGNORE (optional, some prefer to keep)
+        (".idea", "GITIGNORE", "JetBrains IDE config", 'echo ".idea/" >> .gitignore'),
+        (".vscode", "GITIGNORE", "VS Code config", 'echo ".vscode/" >> .gitignore'),
+
+        # Sensitive files - SENSITIVE (should never be committed)
+        (".env", "SENSITIVE", "Environment variables", "⚠️ Contains secrets - do not commit"),
+        (".env.local", "SENSITIVE", "Local environment", "⚠️ Contains secrets - do not commit"),
+        (".env.production", "SENSITIVE", "Production secrets", "⚠️ Contains secrets - do not commit"),
+        ("credentials.json", "SENSITIVE", "Credentials file", "⚠️ Contains secrets - do not commit"),
+        ("*.pem", "SENSITIVE", "Private key", "⚠️ Contains secrets - do not commit"),
+        ("*.key", "SENSITIVE", "Private key", "⚠️ Contains secrets - do not commit"),
+    ]
+
+    found_issues = {
+        "DELETE": [],
+        "GITIGNORE": [],
+        "SENSITIVE": []
+    }
+
+    # Check for files matching patterns
+    for pattern, category, description, recommendation in patterns:
+        if "*" in pattern:
+            # Glob pattern
+            matches = list(plugin_root.glob(pattern))
+            # Also check in subdirectories (one level)
+            for subdir in plugin_root.iterdir():
+                if subdir.is_dir() and not subdir.name.startswith("."):
+                    matches.extend(subdir.glob(pattern))
+        else:
+            # Exact match
+            target = plugin_root / pattern
+            matches = [target] if target.exists() else []
+
+        for match in matches:
+            rel_path = match.relative_to(plugin_root)
+            found_issues[category].append((str(rel_path), description, recommendation))
+
+    # Check .gitignore for proper entries
+    gitignore_path = plugin_root / ".gitignore"
+    gitignore_content = gitignore_path.read_text() if gitignore_path.exists() else ""
+
+    # Generate warnings
+    if found_issues["SENSITIVE"]:
+        msg_parts = [
+            "W036: SENSITIVE files detected - potential security risk!",
+            "",
+            "🔴 These files may contain secrets and should NEVER be committed:",
+            ""
+        ]
+        for path, desc, rec in found_issues["SENSITIVE"]:
+            msg_parts.append(f"  • {path} ({desc})")
+            msg_parts.append(f"    {rec}")
+        msg_parts.extend([
+            "",
+            "📋 Recommended actions:",
+            "  1. Add to .gitignore IMMEDIATELY",
+            "  2. If already committed, use 'git rm --cached <file>'",
+            "  3. Consider rotating any exposed secrets"
+        ])
+        result.add_warning("\n".join(msg_parts))
+
+    if found_issues["DELETE"]:
+        msg_parts = [
+            "W036: Unnecessary files found - cleanup recommended:",
+            ""
+        ]
+        for path, desc, rec in found_issues["DELETE"][:10]:  # Limit to 10
+            msg_parts.append(f"  • {path} ({desc})")
+        if len(found_issues["DELETE"]) > 10:
+            msg_parts.append(f"  ... and {len(found_issues['DELETE']) - 10} more")
+        msg_parts.extend([
+            "",
+            "📋 Cleanup commands:",
+        ])
+        # Group by recommendation
+        seen_recs = set()
+        for _, _, rec in found_issues["DELETE"]:
+            if rec not in seen_recs:
+                msg_parts.append(f"  {rec}")
+                seen_recs.add(rec)
+        result.add_warning("\n".join(msg_parts))
+
+    if found_issues["GITIGNORE"]:
+        # Check if already in .gitignore
+        not_ignored = []
+        for path, desc, rec in found_issues["GITIGNORE"]:
+            base_name = Path(path).name
+            if base_name not in gitignore_content:
+                not_ignored.append((path, desc, rec))
+
+        if not_ignored:
+            msg_parts = [
+                "W036: Files that should be in .gitignore:",
+                ""
+            ]
+            for path, desc, rec in not_ignored:
+                msg_parts.append(f"  • {path} ({desc})")
+            msg_parts.extend([
+                "",
+                "📋 Add to .gitignore:",
+            ])
+            for path, _, _ in not_ignored:
+                base = Path(path).name
+                if base.startswith("."):
+                    msg_parts.append(f'  echo "{base}" >> .gitignore')
+                else:
+                    msg_parts.append(f'  echo "{base}/" >> .gitignore')
+            result.add_warning("\n".join(msg_parts))
+
+    if not any(found_issues.values()):
+        result.add_pass("W036: No unnecessary files detected")
+
+    return result
+
+
 def validate_settings_json() -> ValidationResult:
     """Check for common settings.json misconfigurations."""
     result = ValidationResult()
@@ -1101,6 +1248,7 @@ def main():
         total_result.merge(validate_frontmatter_fields(effective_root))
         total_result.merge(validate_scripts(effective_root))
         total_result.merge(validate_hookify_compliance(effective_root))
+        total_result.merge(validate_unnecessary_files(effective_root))
 
     # Output results
     if json_output:
