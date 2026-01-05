@@ -1,27 +1,23 @@
-# OS
-.DS_Store
-Thumbs.db
-
 # Editor
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
+# Ignore problematic subdirectories
+# Node (if any tests added)
+# OS
 # Temporary
-*.tmp
-*.log
-.cache/
-
 # Workflow state files (serena-refactor, etc.)
+*.log
+*.swo
+*.swp
+*.tmp
+*~
+.DS_Store
+.cache/
+.idea/
 .inject-*
 .refactor-*
+.vscode/
 .workflow-*
-
-# Node (if any tests added)
+Thumbs.db
+claude-skill-maker/
+firebase-debug.log
 node_modules/
 package-lock.json
-
-# Ignore problematic subdirectories
-claude-skill-maker/
