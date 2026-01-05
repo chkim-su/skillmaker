@@ -168,6 +168,62 @@ def should_use_semantic(prompt: str, keyword_matches: list) -> bool:
     return False
 
 
+ANALYSIS_KEYWORDS = [
+    # Korean
+    "검증", "분석", "리뷰", "검토", "진단", "평가", "감사",
+    # English
+    "analyze", "analysis", "review", "audit", "diagnose", "evaluate",
+    "validate", "verify", "check", "inspect", "assess"
+]
+
+ANALYSIS_PATTERNS = [
+    r"(전반적|종합적|전체).*검",  # 전반적 검토, 종합적 검증
+    r"강건성|적합성|건전성",  # robustness, suitability
+    r"개선.*나열|문제.*찾",  # list improvements, find issues
+]
+
+
+def detect_analysis_intent(prompt: str) -> bool:
+    """Detect if user is asking for analysis/validation."""
+    prompt_lower = prompt.lower()
+
+    # Check keywords
+    for kw in ANALYSIS_KEYWORDS:
+        if kw.lower() in prompt_lower:
+            return True
+
+    # Check patterns
+    for pattern in ANALYSIS_PATTERNS:
+        if re.search(pattern, prompt, re.IGNORECASE):
+            return True
+
+    return False
+
+
+def output_analysis_context():
+    """Output additionalContext for semantic analysis trigger."""
+    context = """
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔍 SEMANTIC ANALYSIS TRIGGERED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Analysis keywords detected. You MUST:
+
+1. Run static validation first:
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --json
+
+2. Then dispatch semantic agents via Task tool:
+   Task(subagent_type="skillmaker:diagnostic-orchestrator",
+        prompt="Run comprehensive analysis on this project")
+
+3. Synthesize findings from both layers.
+
+DO NOT skip semantic analysis when user asks for verification/review.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+"""
+    print(context)
+
+
 def format_output(skills: list, complexity: Optional[str], ambiguous: bool = False):
     """Format output for display"""
     if not skills and not ambiguous:
@@ -255,7 +311,11 @@ async def async_main():
                     "method": "complexity"
                 })
 
-    # Output
+    # Step 5: Detect analysis intent and output trigger
+    if detect_analysis_intent(prompt):
+        output_analysis_context()
+
+    # Output skill recommendations
     format_output(all_matches, complexity, ambiguous)
 
 
@@ -271,6 +331,10 @@ def main():
             rules = load_skill_rules()
 
             if prompt and rules:
+                # Check for analysis intent
+                if detect_analysis_intent(prompt):
+                    output_analysis_context()
+
                 matches = find_matching_skills_keyword(prompt, rules)
                 complexity = detect_complexity(prompt, rules.get("complexity_levels", {}))
                 format_output(matches, complexity)
