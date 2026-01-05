@@ -162,17 +162,30 @@ def get_skill_hint(warning_code: str, context: str = "") -> str:
     return ""
 
 
-def find_marketplace_json(start_path: Path) -> Path | None:
-    """Find marketplace.json in .claude-plugin/ directory."""
+def find_marketplace_json(start_path: Path) -> Tuple[Path | None, str | None]:
+    """
+    Find marketplace.json in .claude-plugin/ directory.
+
+    Returns:
+        (path, warning) - path to marketplace.json and optional warning message
+    """
     claude_plugin = start_path / ".claude-plugin"
     if claude_plugin.exists():
         marketplace = claude_plugin / "marketplace.json"
         if marketplace.exists():
-            return marketplace
+            return marketplace, None
+
+    # Check for legacy plugin.json (not supported by Claude Code)
     plugin_json = start_path / "plugin.json"
     if plugin_json.exists():
-        return plugin_json
-    return None
+        warning = (
+            "⚠️ LEGACY FORMAT: Found plugin.json but Claude Code requires .claude-plugin/marketplace.json\n"
+            "   plugin.json is NOT recognized during installation.\n"
+            "   → Migration required: Move plugin.json to .claude-plugin/marketplace.json"
+        )
+        return plugin_json, warning
+
+    return None, None
 
 
 def parse_frontmatter(content: str) -> Tuple[dict | None, str | None]:
@@ -1018,13 +1031,26 @@ def main():
     plugin_root = Path(args[0]).resolve() if args else Path.cwd()
 
     # Find marketplace.json
-    marketplace_path = find_marketplace_json(plugin_root)
+    marketplace_path, legacy_warning = find_marketplace_json(plugin_root)
     if not marketplace_path:
         if json_output:
             print(json.dumps({"status": "error", "message": "No marketplace.json found"}))
         else:
-            print("ERROR: No .claude-plugin/marketplace.json or plugin.json found")
+            print("ERROR: No .claude-plugin/marketplace.json found")
+            print("       Claude Code requires: .claude-plugin/marketplace.json")
         sys.exit(1)
+
+    # Show legacy format warning (plugin.json found but not supported)
+    if legacy_warning:
+        if json_output:
+            print(json.dumps({"status": "error", "message": legacy_warning}))
+            sys.exit(1)
+        else:
+            print(f"\n{legacy_warning}\n")
+            print("=" * 60)
+            print("VALIDATION BLOCKED - Fix legacy format before proceeding")
+            print("=" * 60)
+            sys.exit(1)
 
     # Check for marketplace.json and plugin.json conflict
     # This causes "no context" error in Claude Code runtime
