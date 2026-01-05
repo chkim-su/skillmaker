@@ -6,54 +6,54 @@ allowed-tools: ["Read", "Grep", "Glob"]
 
 # Hook SDK Integration
 
-Hook에서 u-llm-sdk/claude-only-sdk를 사용하여 LLM 호출하는 패턴.
+Patterns for invoking LLM calls from hooks using u-llm-sdk/claude-only-sdk.
 
-## IMPORTANT: SDK 상세 가이드
+## IMPORTANT: SDK Detailed Guide
 
-**SDK 구현 시 반드시 로드**:
+**Load when implementing SDK**:
 ```
 Skill("skillmaker:llm-sdk-guide")
 ```
 
-이 스킬은 SDK 호출 패턴의 **인터페이스**를 다루고,
-`llm-sdk-guide`는 SDK의 **상세 API와 타입**을 다룹니다.
+This skill covers SDK call pattern **interfaces**.
+`llm-sdk-guide` covers SDK **detailed APIs and types**.
 
 ## Quick Start
 
 ```bash
-# Background agent 패턴 (비차단)
+# Background agent pattern (non-blocking)
 (python3 sdk-agent.py "$INPUT" &)
 echo '{"status": "started"}'
 exit 0
 ```
 
-## 핵심 발견 (검증됨: 2025-12-30)
+## Key Findings (Verified: 2025-12-30)
 
-| 항목 | 결과 |
-|------|------|
-| SDK 호출 | ✅ Hook에서 가능 |
-| Latency | ~30초 (CLI 세션 초기화) |
-| Background | ✅ 비차단 실행 가능 (0.01초 반환) |
-| 비용 | 구독 사용량으로 처리 (추가 API 비용 없음) |
+| Item | Result |
+|------|--------|
+| SDK calls | Possible from hooks |
+| Latency | ~30s (CLI session initialization) |
+| Background | Non-blocking execution possible (0.01s return) |
+| Cost | Included in subscription (no additional API cost) |
 
-## 아키텍처
+## Architecture
 
 ```
-Hook (bash) → Background (&) → SDK (Python) → CLI → 구독 사용량
+Hook (bash) → Background (&) → SDK (Python) → CLI → Subscription usage
      │                                                    │
-     └─── 즉시 반환 (0.01초) ─────────────────────────────┘
+     └─── Immediate return (0.01s) ───────────────────────┘
 ```
 
-## 패턴 선택
+## Pattern Selection
 
-| 상황 | 패턴 | 이유 |
-|------|------|------|
-| 빠른 평가 필요 | `type: "prompt"` | 세션 내 실행, 빠름 |
-| 격리 필요 | CLI 직접 호출 | 별도 MCP 설정 가능 |
-| 복잡한 로직 | SDK + Background | 타입 안전, 비차단 |
-| 비용 절감 | 로컬 LLM (ollama) | 무료, 프라이버시 |
+| Situation | Pattern | Reason |
+|-----------|---------|--------|
+| Need fast evaluation | `type: "prompt"` | In-session execution, fast |
+| Need isolation | Direct CLI call | Separate MCP config possible |
+| Complex logic | SDK + Background | Type-safe, non-blocking |
+| Cost reduction | Local LLM (ollama) | Free, privacy |
 
-## SDK 설정 (Python)
+## SDK Configuration (Python)
 
 ```python
 from u_llm_sdk import LLM, LLMConfig
@@ -70,19 +70,19 @@ async with LLM(config) as llm:
     result = await llm.run("Your prompt")
 ```
 
-## 비용 구조
+## Cost Structure
 
-| 방식 | 비용 |
-|------|------|
-| `type: "prompt"` | 구독 포함 |
-| Claude CLI | 구독 포함 |
-| SDK → CLI | 구독 포함 |
-| 직접 API | 토큰 과금 |
+| Method | Cost |
+|--------|------|
+| `type: "prompt"` | Included in subscription |
+| Claude CLI | Included in subscription |
+| SDK via CLI | Included in subscription |
+| Direct API | Per-token billing |
 
 ## References
 
-- **[LLM SDK 상세 가이드](../llm-sdk-guide/SKILL.md)** ← SDK API 상세
-- [SDK 통합 패턴](references/sdk-patterns.md)
-- [Background Agent 구현](references/background-agent.md)
-- [비용 최적화](references/cost-optimization.md)
-- [실제 사례](references/real-world-projects.md)
+- **[LLM SDK Detailed Guide](../llm-sdk-guide/SKILL.md)** - SDK API details
+- [SDK Integration Patterns](references/sdk-patterns.md)
+- [Background Agent Implementation](references/background-agent.md)
+- [Cost Optimization](references/cost-optimization.md)
+- [Real-World Projects](references/real-world-projects.md)

@@ -20,14 +20,14 @@ All MUST/CRITICAL keywords are hookified via `hooks/hooks.json`:
 
 | Level | Keywords | Skills to Load |
 |-------|----------|----------------|
-| **Simple** | simple, basic, 단순, 기본 | skill-design |
-| **Standard** | standard, normal, 일반 | + orchestration-patterns, hook-templates |
-| **Advanced** | advanced, complex, serena, mcp, 고급 | ALL pattern skills |
+| **Simple** | simple, basic | skill-design |
+| **Standard** | standard, normal | + orchestration-patterns, hook-templates |
+| **Advanced** | advanced, complex, serena, mcp | ALL pattern skills |
 
 If no keyword detected, ask:
 ```yaml
 AskUserQuestion:
-  question: "프로젝트 복잡도를 선택하세요"
+  question: "Select project complexity"
   header: "Complexity"
   options:
     - label: "Simple"
@@ -41,17 +41,17 @@ AskUserQuestion:
 
 | Pattern | Route | Details |
 |---------|-------|---------|
-| `init\|new.*project\|새.*프로젝트` | PROJECT_INIT | `Read("references/route-project-init.md")` |
-| `skill.*create\|스킬.*만들` | SKILL | `Read("references/route-skill.md")` |
-| `convert\|from.*code\|변환` | SKILL_FROM_CODE | `Read("references/route-skill.md")` |
-| `agent\|에이전트\|subagent` | AGENT | `Read("references/route-agent-command.md")` |
-| `command\|workflow\|명령어` | COMMAND | `Read("references/route-agent-command.md")` |
-| `analyze\|분석\|리뷰\|review` | ANALYZE | `Read("references/route-analyze.md")` |
-| `validate\|check\|검증` | VALIDATE | `Read("references/route-validate.md")` |
-| `publish\|deploy\|배포` | PUBLISH | `Read("references/route-publish.md")` |
-| `register\|local\|등록` | LOCAL_REGISTER | `Read("references/route-publish.md")` |
-| `llm\|sdk\|직접.*호출\|background.*agent` | LLM_INTEGRATION | `Read("references/route-llm-integration.md")` + `Skill("skillmaker:llm-sdk-guide")` |
-| `hook.*design\|훅.*설계\|적절한.*hook` | HOOK_DESIGN | `Read("references/route-hook-design.md")` |
+| `init\|new.*project` | PROJECT_INIT | `Read("references/route-project-init.md")` |
+| `skill.*create` | SKILL | `Read("references/route-skill.md")` |
+| `convert\|from.*code` | SKILL_FROM_CODE | `Read("references/route-skill.md")` |
+| `agent\|subagent` | AGENT | `Read("references/route-agent-command.md")` |
+| `command\|workflow` | COMMAND | `Read("references/route-agent-command.md")` |
+| `analyze\|review` | ANALYZE | `Read("references/route-analyze.md")` |
+| `validate\|check` | VALIDATE | `Read("references/route-validate.md")` |
+| `publish\|deploy` | PUBLISH | `Read("references/route-publish.md")` |
+| `register\|local` | LOCAL_REGISTER | `Read("references/route-publish.md")` |
+| `llm\|sdk\|background.*agent` | LLM_INTEGRATION | `Read("references/route-llm-integration.md")` + `Skill("skillmaker:llm-sdk-guide")` |
+| `hook.*design\|proper.*hook` | HOOK_DESIGN | `Read("references/route-hook-design.md")` |
 | no match | MENU | Show menu below |
 
 ---
@@ -102,9 +102,9 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/validate_all.py --json
 
 ### Next Steps Template
 ```markdown
-1. **로컬 등록**: `/wizard register`
-2. **테스트**: Claude Code 재시작 → 기능 테스트
-3. **배포**: `/wizard publish`
+1. **Local Register**: `/wizard register`
+2. **Test**: Restart Claude Code → Test functionality
+3. **Publish**: `/wizard publish`
 ```
 
 ---

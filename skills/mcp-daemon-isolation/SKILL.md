@@ -8,14 +8,14 @@ allowed-tools: ["Read", "Bash", "Grep", "Glob"]
 
 External CLI pattern for isolating **query-type MCP** tool results from main context.
 
-## Query-Type MCP 정의
+## Query-Type MCP Definition
 
-| Type | Examples | 특징 |
-|------|----------|------|
-| **Query-type** | Serena (LSP), Database, Search | 결과 크기 예측 불가, 수천 토큰 가능 |
-| **Action-type** | File write, Git, Deploy | 결과 작음, 성공/실패 위주 |
+| Type | Examples | Characteristics |
+|------|----------|-----------------|
+| **Query-type** | Serena (LSP), Database, Search | Unpredictable result size, potentially thousands of tokens |
+| **Action-type** | File write, Git, Deploy | Small results, success/failure focused |
 
-**식별 기준:** `find_*`, `search_*`, `get_*`, `list_*` 패턴 도구
+**Identification criteria:** Tools with `find_*`, `search_*`, `get_*`, `list_*` patterns
 
 ---
 
@@ -78,9 +78,9 @@ For formatter code: `Read("references/extractors-and-examples.md")`
 ### Output Modes
 
 ```bash
-serena-query find_symbol UserService                    # summary (기본)
-serena-query find_symbol UserService --mode location    # 위치만 (Read 연계)
-serena-query find_symbol UserService --mode full        # 전체 JSON
+serena-query find_symbol UserService                    # summary (default)
+serena-query find_symbol UserService --mode location    # location only (for Read)
+serena-query find_symbol UserService --mode full        # full JSON
 ```
 
 ### Basic Commands
@@ -95,19 +95,19 @@ serena-query find_symbol UserService --output /tmp/result.json
 
 ---
 
-## 최적 워크플로우: 탐색-위치-읽기
+## Optimal Workflow: Explore-Locate-Read
 
 ```
-1. 탐색 (--mode summary)     ~25 토큰   "어떤 심볼이 있지?"
-2. 위치 (--mode location)    ~15 토큰   "정확히 어디있지?"
-3. 읽기 (Read 도구)          실제 크기   필요한 코드만
+1. Explore (--mode summary)   ~25 tokens  "What symbols exist?"
+2. Locate (--mode location)   ~15 tokens  "Where exactly is it?"
+3. Read (Read tool)           actual size  Only needed code
 ```
 
-| 시나리오 | stdio 방식 | daemon+Read | 절감률 |
-|---------|-----------|-------------|--------|
-| 클래스 분석 | ~525 | ~240 | 54% |
-| 11개 함수 분석 | ~4,300 | ~665 | 85% |
-| 대규모 검색 | ~10,000+ | ~500 | 95% |
+| Scenario | stdio approach | daemon+Read | Savings |
+|----------|----------------|-------------|---------|
+| Class analysis | ~525 | ~240 | 54% |
+| 11 function analysis | ~4,300 | ~665 | 85% |
+| Large-scale search | ~10,000+ | ~500 | 95% |
 
 For detailed examples: `Read("references/extractors-and-examples.md")`
 
@@ -142,24 +142,24 @@ Claude IS the LLM consuming the output - no need for additional summarization.
 
 ---
 
-## 격리 전략 가이드
+## Isolation Strategy Guide
 
-| 시나리오 | 권장 | 이유 |
-|---------|------|------|
-| 단일 심볼 편집 | stdio | 즉각적인 수정 |
-| 코드베이스 탐색 | daemon | 대량 결과 예상 |
-| 참조 추적 | daemon + location | 위치만 필요 |
-| 리팩토링 계획 | daemon + full | 전체 구조 분석 |
+| Scenario | Recommended | Reason |
+|----------|-------------|--------|
+| Single symbol edit | stdio | Immediate modification |
+| Codebase exploration | daemon | Expect large results |
+| Reference tracking | daemon + location | Only need locations |
+| Refactoring planning | daemon + full | Full structure analysis |
 
 ---
 
 ## Common Issues
 
-| 증상 | 원인 | 해결 |
-|------|------|------|
-| "Received request before initialization" | 핸드셰이크 누락 | `initialize` → `notifications/initialized` → `tools/call` 순서 |
-| "Connection refused on 8765" | Daemon 미실행 | `systemctl --user start serena-daemon` |
-| "Empty result" | 구조 불일치 | `--output`으로 raw JSON 저장 후 확인 |
+| Symptom | Cause | Solution |
+|---------|-------|----------|
+| "Received request before initialization" | Missing handshake | `initialize` → `notifications/initialized` → `tools/call` sequence |
+| "Connection refused on 8765" | Daemon not running | `systemctl --user start serena-daemon` |
+| "Empty result" | Structure mismatch | Save raw JSON with `--output` and verify |
 
 ---
 

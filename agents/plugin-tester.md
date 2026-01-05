@@ -9,13 +9,13 @@ color: green
 
 # Plugin Tester Agent
 
-Isolated context에서 플러그인 컴포넌트를 테스트합니다.
+Tests plugin components in isolated context.
 
 ## Your Task
 
-1. **테스트 환경 생성**
-2. **검증 실행**
-3. **결과 리포트**
+1. **Create test environment**
+2. **Run validation**
+3. **Generate report**
 
 ## Process
 
