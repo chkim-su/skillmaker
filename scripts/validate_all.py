@@ -1180,12 +1180,14 @@ def main():
     # Find marketplace.json
     marketplace_path, legacy_warning = find_marketplace_json(plugin_root)
     if not marketplace_path:
+        # Not a plugin project - skip validation silently (exit 0)
+        # This allows the hook to run in any project without errors
         if json_output:
-            print(json.dumps({"status": "error", "message": "No marketplace.json found"}))
-        else:
-            print("ERROR: No .claude-plugin/marketplace.json found")
-            print("       Claude Code requires: .claude-plugin/marketplace.json")
-        sys.exit(1)
+            print(json.dumps({"status": "skip", "message": "Not a plugin project"}))
+        # Only show message if not in quiet mode and not a hook context
+        elif not quiet:
+            print("SKIP: No .claude-plugin/marketplace.json found (not a plugin project)")
+        sys.exit(0)  # Graceful skip, not an error
 
     # Show legacy format warning (plugin.json found but not supported)
     if legacy_warning:
